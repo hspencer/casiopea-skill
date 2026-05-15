@@ -1,0 +1,1166 @@
+{
+  "fecha_dump": "2026-05-11 22:14:00",
+  "wiki": "https://wiki.ead.pucv.cl",
+  "core_classes": [
+    "Acto",
+    "Asignatura",
+    "Bibliografía",
+    "Caso de Estudio",
+    "Clase",
+    "Curso",
+    "Evento",
+    "Exposición",
+    "Obra",
+    "Objeto de Archivo",
+    "Observación",
+    "Página de Cuaderno",
+    "Persona",
+    "Presencia en la Sociedad",
+    "Proyecto",
+    "Proyecto de Investigación",
+    "Proyecto de Vinculación con el Medio",
+    "Publicación",
+    "Revista Académica",
+    "Tarea",
+    "Trabajo en MADLAB",
+    "Travesía"
+  ],
+  "form_names": {
+    "Acto": "Nuevo Acto",
+    "Asignatura": "Nueva Asignatura",
+    "Bibliografía": "Nueva Bibliografía",
+    "Caso de Estudio": "Nuevo Caso de Estudio",
+    "Clase": "Nueva Clase",
+    "Curso": "Nuevo Curso",
+    "Evento": "Nuevo Evento",
+    "Exposición": "Nueva Exposición",
+    "Obra": "Nueva Obra",
+    "Objeto de Archivo": "Nuevo Objeto de Archivo",
+    "Observación": "Nueva Observación",
+    "Página de Cuaderno": "Nueva Página de Cuaderno",
+    "Persona": "Nueva Persona",
+    "Presencia en la Sociedad": "Nueva Presencia en la Sociedad",
+    "Proyecto": "Nuevo Proyecto",
+    "Proyecto de Investigación": "Nuevo Proyecto de Investigación",
+    "Proyecto de Vinculación con el Medio": "Nuevo Proyecto de Vinculación con el Medio",
+    "Publicación": "Nueva Publicación",
+    "Revista Académica": "Nueva Revista Académica",
+    "Tarea": "Nueva Tarea",
+    "Trabajo en MADLAB": "Nuevo Trabajo en MADLAB",
+    "Travesía": "Nueva Travesía"
+  },
+  "class_props": {
+    "Acto": [
+      "Autor",
+      "Año",
+      "Coautores",
+      "Descripción",
+      "Estado en Archivo JVA",
+      "Fecha",
+      "Fuente de Financiamiento",
+      "Lugar",
+      "Palabras Clave",
+      "Participantes",
+      "Talleres Relacionados",
+      "Tipo de Acto",
+      "Título"
+    ],
+    "Asignatura": [
+      "Asignatura Homologada",
+      "Bibliografía",
+      "Bibliografía Complementaria",
+      "Carreras Relacionadas",
+      "Ciclo Formativo",
+      "Clave",
+      "Competencias Disciplinares",
+      "Competencias Fundamentales",
+      "Competencias Profesionales",
+      "Contenidos",
+      "Criterios de Evaluación",
+      "Créditos",
+      "Currículum",
+      "Descripción",
+      "Estrategias de Enseñanza",
+      "Horas Teóricas",
+      "Horas de Ayudantía",
+      "Horas de Taller",
+      "Horas de Trabajo",
+      "Línea de Estudio",
+      "Mención",
+      "Período Académico",
+      "Pre-requisito",
+      "Profesores",
+      "Profesores Anteriores",
+      "Resultados de Aprendizaje",
+      "Régimen",
+      "Tipo de Asignatura",
+      "Área de Estudio"
+    ],
+    "Bibliografía": [
+      "Asignaturas Relacionadas",
+      "Autor",
+      "Año",
+      "Carreras Relacionadas",
+      "Coautores",
+      "Cursos Relacionados",
+      "Código",
+      "Editorial",
+      "Nota",
+      "Palabras Clave",
+      "Proyectos Relacionados",
+      "Tipo de Publicación",
+      "Título",
+      "URL"
+    ],
+    "Caso de Estudio": [
+      "Alumnos",
+      "Autor",
+      "Cursos Relacionados",
+      "Descripción",
+      "Descripción Corta",
+      "Desde",
+      "Dimensiones",
+      "Hasta",
+      "Lugar",
+      "Materialidad",
+      "Nombre",
+      "Palabras Clave",
+      "Período",
+      "Proyectos Relacionados",
+      "URL"
+    ],
+    "Clase": [
+      "Asignaturas Relacionadas",
+      "Cursos Relacionados",
+      "Profesores"
+    ],
+    "Curso": [
+      "Alumnos",
+      "Asignaturas Relacionadas",
+      "Ayudantes",
+      "Año",
+      "Carreras Relacionadas",
+      "Docencia Vinculada",
+      "Palabras Clave",
+      "Período Académico",
+      "Profesores",
+      "Profesores Invitados",
+      "Talleres",
+      "Tipo de Curso",
+      "Vinculación con el Medio"
+    ],
+    "Evento": [
+      "Audiencia Estimada",
+      "Año",
+      "Estado en Archivo JVA",
+      "Fecha",
+      "Fecha de Inicio",
+      "Fecha de Término",
+      "Fuente de Financiamiento",
+      "Institución Contraparte",
+      "Lugar",
+      "Nombre",
+      "Organizador",
+      "Palabras Clave",
+      "Participantes",
+      "Presencias en la Sociedad Relacionadas",
+      "Rol de la Contraparte",
+      "Rol de la Escuela",
+      "Tipo de Evento",
+      "URL"
+    ],
+    "Exposición": [
+      "Autor",
+      "Año",
+      "Ciudad",
+      "Coautores",
+      "Fecha",
+      "Lugar",
+      "Nota",
+      "Palabras Clave"
+    ],
+    "Obra": [
+      "Autor",
+      "Coautores",
+      "Descripción",
+      "Desde",
+      "Dimensiones",
+      "Documentos",
+      "Hasta",
+      "Lugar",
+      "Materialidad",
+      "Nombre",
+      "Nota",
+      "Oficios Relacionados",
+      "Palabras Clave",
+      "Período",
+      "Ronda",
+      "URL",
+      "Ámbito Geográfico",
+      "Área de Investigación"
+    ],
+    "Objeto de Archivo": [
+      "Actividad",
+      "Acto",
+      "Alto",
+      "Ancho",
+      "Autor",
+      "Año",
+      "Ciudad",
+      "Coautores",
+      "Colección",
+      "Conjunto",
+      "Código",
+      "Edición",
+      "Ejercicio",
+      "Estructuras",
+      "Experiencia",
+      "Fecha",
+      "Fondo",
+      "Imágenes",
+      "Lenguajes",
+      "Nota",
+      "Número de Documentos no Encuadernados",
+      "Número de Ingreso",
+      "Número de Páginas Encuadernadas",
+      "Número de Páginas con Inscripción",
+      "Obra de Travesía",
+      "Palabras Clave",
+      "Páginas",
+      "Travesías",
+      "Título"
+    ],
+    "Observación": [
+      "Has type",
+      "Palabras Clave",
+      "Proyectos Relacionados",
+      "Páginas Relacionadas"
+    ],
+    "Página de Cuaderno": [
+      "Actividad",
+      "Carilla",
+      "Ejercicio",
+      "Estructuras",
+      "Lenguajes",
+      "Número Correlativo",
+      "Objeto Cuaderno",
+      "Parte",
+      "Título"
+    ],
+    "Persona": [
+      "Apellido",
+      "Año de Ingreso a la Escuela",
+      "Biografía",
+      "Carreras Relacionadas",
+      "Ciudad",
+      "Email",
+      "Grado Académico",
+      "Jerarquía Académica",
+      "Nombre",
+      "País",
+      "Página Web",
+      "Relación con la Escuela"
+    ],
+    "Presencia en la Sociedad": [
+      "Descripción",
+      "Evento",
+      "Fecha",
+      "Institución Contraparte",
+      "Lugar",
+      "Modalidad",
+      "Otros Participantes",
+      "Palabras Clave",
+      "Profesores",
+      "Rol de la Contraparte",
+      "Rol de la Escuela",
+      "Tipo de Presencia Académica",
+      "Título",
+      "Url"
+    ],
+    "Proyecto": [
+      "Alumnos",
+      "Asignaturas Relacionadas",
+      "Año de Inicio",
+      "Año de Término",
+      "Carreras Relacionadas",
+      "Cursos Relacionados",
+      "Palabras Clave",
+      "Profesor",
+      "Tipo de Proyecto",
+      "Título",
+      "URL"
+    ],
+    "Proyecto de Investigación": [
+      "Año de Inicio",
+      "Año de Término",
+      "Carreras Relacionadas",
+      "Coinvestigadores",
+      "Código",
+      "Fuente de Financiamiento",
+      "Investigador Responsable",
+      "Línea de Investigación",
+      "Modalidad de Investigación",
+      "Palabras Clave",
+      "Presupuesto",
+      "Título",
+      "URL",
+      "Vinculación con el Medio",
+      "Área de Investigación"
+    ],
+    "Proyecto de Vinculación con el Medio": [
+      "Año de Inicio",
+      "Año de Término",
+      "Contraparte",
+      "Fuente de Financiamiento",
+      "PDF",
+      "Palabras Clave",
+      "Posición",
+      "Presupuesto",
+      "Profesionales",
+      "Profesores",
+      "Tipo de Vinculación",
+      "Título",
+      "URL"
+    ],
+    "Publicación": [
+      "Autor",
+      "Año",
+      "Carreras Relacionadas",
+      "Ciudad",
+      "Coautores",
+      "Colección",
+      "Código",
+      "Edición",
+      "Editorial",
+      "Filiación",
+      "Indexación",
+      "Línea de Investigación",
+      "Nota",
+      "Número",
+      "Palabras Clave",
+      "Profesor Guía",
+      "Páginas",
+      "Revista",
+      "Tipo de Publicación",
+      "Título",
+      "URL",
+      "Volumen",
+      "Área de Investigación"
+    ],
+    "Revista Académica": [
+      "Carreras Relacionadas",
+      "Código",
+      "Descripción",
+      "Dirección",
+      "Editorial",
+      "Email",
+      "Filiación",
+      "Idioma",
+      "Indexación",
+      "Nombre",
+      "Números al Año",
+      "Palabras Clave",
+      "País",
+      "Profesores que han Publicado",
+      "Suscripción Escuela",
+      "URL"
+    ],
+    "Tarea": [
+      "Alumnos",
+      "Asignaturas Relacionadas",
+      "Carreras Relacionadas",
+      "Cursos Relacionados",
+      "Sección",
+      "URL"
+    ],
+    "Trabajo en MADLAB": [
+      "Archivo",
+      "Asignaturas Relacionadas",
+      "Autor",
+      "Cursos Relacionados",
+      "Fecha",
+      "Máquina",
+      "Software"
+    ],
+    "Travesía": [
+      "Alumnos",
+      "Ayudantes",
+      "Año",
+      "Cursos Relacionados",
+      "Destino",
+      "Fecha de Inicio",
+      "Fecha de Término",
+      "Nombre",
+      "Obra de Travesía",
+      "Profesores",
+      "Profesores Invitados",
+      "Talleres"
+    ]
+  },
+  "form_fields": {
+    "Acto": [],
+    "Asignatura": [],
+    "Bibliografía": [],
+    "Caso de Estudio": [],
+    "Clase": [],
+    "Curso": [],
+    "Evento": [],
+    "Exposición": [],
+    "Obra": [],
+    "Objeto de Archivo": [],
+    "Observación": [],
+    "Página de Cuaderno": [],
+    "Persona": [],
+    "Presencia en la Sociedad": [],
+    "Proyecto": [],
+    "Proyecto de Investigación": [],
+    "Proyecto de Vinculación con el Medio": [],
+    "Publicación": [],
+    "Revista Académica": [],
+    "Tarea": [],
+    "Trabajo en MADLAB": [],
+    "Travesía": []
+  },
+  "prop_meta": {
+    "Actividad": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Acto": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Alto": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Alumnos": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Ancho": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Apellido": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Archivo": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Asignatura Homologada": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Asignaturas Relacionadas": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Audiencia Estimada": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Autor": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Ayudantes": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Año": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Año de Ingreso a la Escuela": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Año de Inicio": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Año de Término": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Bibliografía": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Bibliografía Complementaria": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Biografía": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Carilla": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Carreras Relacionadas": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Ciclo Formativo": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Ciudad": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Clave": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Coautores": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Coinvestigadores": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Colección": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Competencias Disciplinares": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Competencias Fundamentales": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Competencias Profesionales": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Conjunto": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Contenidos": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Contraparte": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Criterios de Evaluación": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Créditos": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Currículum": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Cursos Relacionados": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Código": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Descripción": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Descripción Corta": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Desde": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Destino": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Dimensiones": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Dirección": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Docencia Vinculada": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Documentos": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Edición": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Editorial": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Ejercicio": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Email": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Estado en Archivo JVA": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Estrategias de Enseñanza": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Estructuras": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Evento": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Experiencia": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Fecha": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Fecha de Inicio": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Fecha de Término": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Filiación": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Fondo": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Fuente de Financiamiento": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Grado Académico": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Has type": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Hasta": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Horas Teóricas": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Horas de Ayudantía": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Horas de Taller": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Horas de Trabajo": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Idioma": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Imágenes": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Indexación": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Institución Contraparte": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Investigador Responsable": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Jerarquía Académica": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Lenguajes": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Lugar": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Línea de Estudio": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Línea de Investigación": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Materialidad": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Mención": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Modalidad": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Modalidad de Investigación": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Máquina": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Nombre": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Nota": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Número": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Número Correlativo": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Número de Documentos no Encuadernados": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Número de Ingreso": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Número de Páginas Encuadernadas": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Número de Páginas con Inscripción": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Números al Año": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Objeto Cuaderno": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Obra de Travesía": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Oficios Relacionados": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Organizador": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Otros Participantes": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "PDF": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Palabras Clave": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Parte": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Participantes": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "País": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Período": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Período Académico": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Posición": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Pre-requisito": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Presencias en la Sociedad Relacionadas": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Presupuesto": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Profesionales": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Profesor": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Profesor Guía": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Profesores": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Profesores Anteriores": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Profesores Invitados": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Profesores que han Publicado": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Proyectos Relacionados": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Página Web": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Páginas": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Páginas Relacionadas": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Relación con la Escuela": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Resultados de Aprendizaje": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Revista": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Rol de la Contraparte": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Rol de la Escuela": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Ronda": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Régimen": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Sección": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Software": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Suscripción Escuela": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Talleres": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Talleres Relacionados": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Tipo de Acto": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Tipo de Asignatura": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Tipo de Curso": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Tipo de Evento": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Tipo de Presencia Académica": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Tipo de Proyecto": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Tipo de Publicación": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Tipo de Vinculación": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Travesías": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Título": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "URL": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Url": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Vinculación con el Medio": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Volumen": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Ámbito Geográfico": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Área de Estudio": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    },
+    "Área de Investigación": {
+      "type": "Page",
+      "allows": [],
+      "exists": false
+    }
+  }
+}

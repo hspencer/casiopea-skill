@@ -1,0 +1,33 @@
+# Credenciales reales del bot. NUNCA commitear.
+# El archivo credentials.example sirve de plantilla.
+credentials
+
+# Artefacto compilado del plugin: se regenera con ./build.sh
+casiopea-wiki.plugin
+*.plugin
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs y temporales
+*.log
+.cache/
+tmp/
