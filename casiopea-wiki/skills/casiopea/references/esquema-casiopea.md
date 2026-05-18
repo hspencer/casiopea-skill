@@ -16,7 +16,7 @@ Esta referencia se descubrio inspeccionando el wikitexto de las plantillas y for
 - [Exposición](#exposicion) (8 propiedades)
 - [Obra](#obra) (18 propiedades)
 - [Objeto de Archivo](#objeto-de-archivo) (29 propiedades)
-- [Observación](#observacion) (4 propiedades)
+- [Observación](#observacion) (3 propiedades)
 - [Página de Cuaderno](#pagina-de-cuaderno) (9 propiedades)
 - [Persona](#persona) (12 propiedades)
 - [Presencia en la Sociedad](#presencia-en-la-sociedad) (14 propiedades)
@@ -345,9 +345,12 @@ Esta referencia se descubrio inspeccionando el wikitexto de las plantillas y for
 - **Formulario:** [Form:Nueva Observación](https://wiki.ead.pucv.cl/Form:Nueva_Observación)
 - **Categoria:** [Category:Observación](https://wiki.ead.pucv.cl/Category:Observación)
 
-### Propiedades semanticas (4)
+### Propiedades semanticas (3)
 
-- [Has type](https://wiki.ead.pucv.cl/Property:Has_type)
+> Nota: `Has type` es una metapropiedad interna de SMW que se filtro al
+> descubrir el esquema; no es una propiedad de usuario y no debe usarse en
+> queries. La metapropiedad equivalente en Casiopea es `Tiene tipo de datos`.
+
 - [Palabras Clave](https://wiki.ead.pucv.cl/Property:Palabras_Clave)
 - [Proyectos Relacionados](https://wiki.ead.pucv.cl/Property:Proyectos_Relacionados)
 - [Páginas Relacionadas](https://wiki.ead.pucv.cl/Property:Páginas_Relacionadas)
@@ -355,7 +358,7 @@ Esta referencia se descubrio inspeccionando el wikitexto de las plantillas y for
 ### Query semantica de ejemplo
 
 ```
-[[Category:Observación]]|?Has type|?Palabras Clave|?Proyectos Relacionados|limit=20
+[[Category:Observación]]|?Palabras Clave|?Proyectos Relacionados|?Páginas Relacionadas|limit=20
 ```
 
 ## Página de Cuaderno

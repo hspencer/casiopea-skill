@@ -1,0 +1,23 @@
+{
+  "name": "ead-pucv",
+  "owner": {
+    "name": "e[ad] PUCV",
+    "url": "https://wiki.ead.pucv.cl"
+  },
+  "metadata": {
+    "description": "Plugins de la Escuela de Arquitectura y Diseno PUCV.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "casiopea-wiki",
+      "source": "./casiopea-wiki",
+      "description": "Acceso autenticado a la wiki Casiopea (Semantic MediaWiki): busqueda, lectura, queries SMW, exportacion CSV/JSON, y escrituras con dry-run y diff. Incluye el comando /casiopea.",
+      "version": "0.3.0",
+      "author": {
+        "name": "e[ad] PUCV"
+      },
+      "keywords": ["casiopea", "ead", "pucv", "mediawiki", "smw", "wiki"]
+    }
+  ]
+}

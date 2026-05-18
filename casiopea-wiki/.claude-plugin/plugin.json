@@ -1,11 +1,12 @@
 {
   "name": "casiopea-wiki",
-  "version": "0.2.0",
-  "description": "Acceso autenticado a la wiki Casiopea de la e[ad] PUCV (Semantic MediaWiki) como bot: busqueda full-text, lectura, queries semanticas SMW, exportacion CSV/JSON, y escrituras con dry-run obligatorio. Incluye el comando /casiopea para entrar en modo bot.",
+  "version": "0.3.0",
+  "description": "Acceso autenticado a la wiki Casiopea de la e[ad] PUCV (Semantic MediaWiki) como bot: busqueda full-text, lectura, queries semanticas SMW, exportacion CSV/JSON, y escrituras con dry-run y diff obligatorios. Incluye el comando /casiopea para entrar en modo bot.",
   "author": {
     "name": "e[ad] PUCV"
   },
   "homepage": "https://wiki.ead.pucv.cl",
+  "license": "MIT",
   "keywords": [
     "casiopea",
     "ead",
