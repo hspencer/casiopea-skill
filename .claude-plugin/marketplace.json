@@ -10,10 +10,10 @@
   },
   "plugins": [
     {
-      "name": "casiopea-wiki",
+      "name": "casiopea",
       "source": "./casiopea-wiki",
-      "description": "Acceso autenticado a la wiki Casiopea (Semantic MediaWiki): busqueda, lectura, queries SMW, exportacion CSV/JSON, y escrituras con dry-run y diff. Incluye el comando /casiopea.",
-      "version": "0.3.0",
+      "description": "Acceso autenticado a la wiki Casiopea (Semantic MediaWiki): busqueda, lectura, queries SMW, exportacion CSV/JSON, y escrituras con dry-run y diff. Comandos /casiopea:leer, :consultar, :escribir, :auditar.",
+      "version": "0.4.0",
       "author": {
         "name": "e[ad] PUCV"
       },

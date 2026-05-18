@@ -1,6 +1,6 @@
 # casiopea-skill
 
-Repositorio del plugin **casiopea-wiki** para Claude Cowork: acceso autenticado a la wiki [Casiopea](https://wiki.ead.pucv.cl) de la Escuela de Arquitectura y Diseño PUCV (una instalación de Semantic MediaWiki).
+Repositorio del plugin **casiopea** (carpeta fuente `casiopea-wiki/`) para Claude Code y Claude Cowork: acceso autenticado a la wiki [Casiopea](https://wiki.ead.pucv.cl) de la Escuela de Arquitectura y Diseño PUCV (una instalación de Semantic MediaWiki). Comandos: `/casiopea:leer`, `/casiopea:consultar`, `/casiopea:escribir`, `/casiopea:auditar`.
 
 ## Estructura
 
@@ -8,7 +8,7 @@ Repositorio del plugin **casiopea-wiki** para Claude Cowork: acceso autenticado 
 casiopea-skill/
 ├── casiopea-wiki/         # Fuente del plugin instalable
 │   ├── .claude-plugin/    # Manifiesto (plugin.json)
-│   ├── commands/          # Slash command /casiopea (modo bot)
+│   ├── commands/          # /casiopea:leer :consultar :escribir :auditar
 │   ├── skills/casiopea/   # Skill: SKILL.md, scripts/, references/
 │   └── README.md          # README del plugin (lo que ve el usuario final)
 ├── docs/                  # Material de referencia que originó el skill
@@ -43,19 +43,30 @@ chmod 600 credentials
 
 Genera `casiopea-wiki.plugin` en la raíz. Es un zip con la fuente de `casiopea-wiki/`.
 
-**3. Instalar en Cowork.**
+**3. Instalar.**
 
-Doble clic sobre `casiopea-wiki.plugin`, o arrástralo a la ventana de chat.
+Claude Code:
+
+```bash
+claude plugin marketplace add /ruta/a/casiopea-skill
+claude plugin install casiopea@ead-pucv
+# luego /reload-plugins (o reiniciar)
+```
+
+Claude Cowork: doble clic sobre `casiopea-wiki.plugin`, o arrástralo a la ventana de chat.
 
 **4. Uso.**
 
-En cualquier conversación de Cowork donde hayas montado esta carpeta:
+Cuatro comandos, todos prefijados `/casiopea:`
 
 ```text
-/casiopea
+/casiopea:leer trae la página Amereida
+/casiopea:consultar travesías por año a CSV
+/casiopea:escribir agrega una sección Notas a la página X
+/casiopea:auditar qué cambió hoy
 ```
 
-Entra en modo bot. También se activa automáticamente cuando mencionas Casiopea, una travesía, una observación u otro contenido de la wiki.
+También se activa automáticamente cuando mencionas Casiopea, una travesía, una observación u otro contenido de la wiki, sin escribir comando.
 
 ## Desarrollo
 

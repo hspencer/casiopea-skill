@@ -1,6 +1,6 @@
 # casiopea-wiki
 
-Plugin de Claude Cowork para leer y buscar en Casiopea, la wiki de la Escuela de Arquitectura y Diseno de la PUCV [^1].
+Plugin de Claude Code (y Claude Cowork) para leer, consultar, escribir y auditar Casiopea, la wiki de la Escuela de Arquitectura y Diseno de la PUCV [^1]. Se instala con el nombre `casiopea`, por lo que sus comandos quedan como `/casiopea:leer`, `/casiopea:consultar`, `/casiopea:escribir` y `/casiopea:auditar`.
 
 ## Que hace
 
@@ -67,21 +67,42 @@ Toda operacion de escritura (`edit`, `append`, `create`, `upload`) por defecto h
 
 ## Instalacion
 
-Doble clic sobre el archivo `casiopea-wiki.plugin` en Cowork, o arrastrarlo a la ventana de chat.
+**Claude Code.** Agregar el marketplace local e instalar el plugin:
 
-## Comando `/casiopea`
+```bash
+claude plugin marketplace add /ruta/al/repo/casiopea-skill
+claude plugin install casiopea@ead-pucv
+```
 
-Escribir `/casiopea` en el chat activa explicitamente el modo bot: Claude carga el skill `casiopea`, resuelve la ruta al script, verifica credenciales y queda listo para operar contra la wiki. Util cuando se quiere arrancar una sesion de trabajo intensivo sobre Casiopea sin tener que esperar a que el skill se gatille por palabras clave.
+Luego `/reload-plugins` (o reiniciar) para que los comandos queden activos.
 
-Tambien se puede pasar una instruccion inicial:
+**Claude Cowork.** Doble clic sobre `casiopea-wiki.plugin`, o arrastrarlo a la ventana de chat.
+
+## Comandos
+
+El plugin expone cuatro comandos, todos prefijados por `/casiopea:`. Cada uno carga el skill `casiopea`, resuelve la ruta al script y verifica credenciales; luego interpreta el texto que escribas como instruccion en lenguaje natural.
+
+| Comando | Para que | Verbos del CLI |
+|---|---|---|
+| `/casiopea:leer` | leer/buscar/traer contenido (solo lectura) | search, page, category, backlinks, browse, history |
+| `/casiopea:consultar` | query semantica SMW + exportar CSV/JSON | ask |
+| `/casiopea:escribir` | editar/crear/mover/subir/borrar (dry-run → diff → confirmar) | edit, append, create, move, upload, delete |
+| `/casiopea:auditar` | monitoreo e impacto, rol admin (solo lectura) | recentchanges, transclusions, fileusage, history |
+
+Ejemplos:
 
 ```text
-/casiopea busca paginas sobre Travesia 2018 y exportame los resultados a CSV
+/casiopea:leer trae la pagina Amereida
+/casiopea:consultar travesias por anio con destino y profesores, a CSV
+/casiopea:escribir agrega una seccion Notas a la pagina X
+/casiopea:auditar quien usa la Plantilla:Persona2
 ```
+
+No es obligatorio escribir un comando: el skill `casiopea` tambien se autoactiva cuando mencionas Casiopea, una travesia, una observacion u otro contenido de la wiki.
 
 ## Uso
 
-Una vez instalado, el skill se activa automaticamente cuando el usuario menciona Casiopea, o se puede invocar explicitamente con `/casiopea`. Ejemplos de prompts:
+Una vez instalado, el skill se activa automaticamente cuando el usuario menciona Casiopea, o se puede invocar explicitamente con `/casiopea:leer`, `/casiopea:consultar`, `/casiopea:escribir` o `/casiopea:auditar`. Ejemplos de prompts:
 
 - "busca en Casiopea paginas sobre Travesias 2018"
 - "traeme el contenido de la pagina Amereida en Casiopea"
