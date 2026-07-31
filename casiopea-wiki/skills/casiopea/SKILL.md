@@ -1,26 +1,24 @@
 ---
 name: casiopea
-description: Consulta y opcionalmente edita la wiki Casiopea de la e[ad] PUCV (https://wiki.ead.pucv.cl), una instalacion de Semantic MediaWiki. Activar este skill cuando el usuario mencione Casiopea, una pagina de la wiki, una travesia, una observacion, una etapa, una coleccion, una edicion, un proyecto de taller de la e[ad], o cuando pida buscar, listar, exportar a CSV, auditar cambios, agregar, editar, mover o crear contenido en la wiki de la escuela.
+description: Lee, consulta, audita, maqueta y edita la wiki Casiopea de la e[ad] PUCV (https://wiki.ead.pucv.cl), una instalacion de Semantic MediaWiki con el skin propio Stella Nova. Activar cuando se mencione Casiopea, una pagina de la wiki, una travesia, observacion, etapa, coleccion, obra, publicacion o proyecto de taller de la e[ad]; cuando se pida buscar, listar, exportar a CSV, auditar cambios, crear, editar o mover contenido en la wiki de la escuela; y cuando se pida disenar, maquetar o dar estilo a una pagina o plantilla de Casiopea, o escribir CSS con TemplateStyles o con los tokens de Stella Nova.
 ---
 
 # Skill: casiopea
 
-Acceso autenticado a la wiki Casiopea de la e[ad] PUCV. Casiopea es una instalacion de Semantic MediaWiki: ademas de busqueda full-text admite queries estructuradas sobre propiedades anotadas en cada pagina.
+Acceso autenticado a la wiki Casiopea de la e[ad] PUCV. Dos cosas la distinguen de una wiki cualquiera, y de ellas se deriva todo lo demás:
 
-## Cuando usar este skill
+1. Es una instalación de **Semantic MediaWiki**: además de búsqueda full-text admite consultas estructuradas sobre propiedades tipadas anotadas en cada página.
+2. Tiene un **sistema de diseño propio**, el skin Stella Nova, con tokens, clases y reglas que el sanitizador de MediaWiki hace cumplir. Maquetar sin conocerlas produce páginas ilegibles en tema oscuro, o CSS que directamente no se guarda.
 
-Activarlo cuando el usuario:
+## Antes que nada: quién firma
 
-- pide buscar, traer o leer una pagina de Casiopea
-- menciona una travesia, etapa, observacion, coleccion o proyecto de la e[ad]
-- pide listar paginas de una categoria o vinculadas a otra pagina
-- pide exportar contenido tabular a CSV o JSON desde la wiki
-- pide auditar el historial de una pagina o los cambios recientes de la wiki
-- pide editar, crear, mover o subir contenido a la wiki
+Este skill actúa con un **bot password**, que es una credencial derivada de la cuenta personal de quien lo configuró. Todo lo que escriba queda en el historial público de la wiki **atribuido a esa persona**, no a un agente. Esto no es un detalle burocrático: cambia el estándar de cuidado.
 
-## Como invocarlo
+En la práctica: nunca ejecutar una escritura sin confirmación explícita en el chat, siempre verificar antes con las herramientas de lectura, y siempre medir el impacto antes de tocar algo que otras páginas usan.
 
-El skill provee un script CLI en `scripts/casiopea.py`. Llamarlo siempre via `python` desde Bash. **Resolver la ruta en cascada** al inicio de la primera invocacion (funciona en Claude Code, Cowork y desarrollo local):
+## Cómo invocar el CLI
+
+El skill provee `scripts/casiopea.py`. Resolver la ruta en cascada al inicio de la primera invocación (funciona en Claude Code, Cowork y desarrollo local):
 
 ```bash
 CASIOPEA=""
@@ -34,185 +32,171 @@ done
 echo "CASIOPEA=$CASIOPEA"
 ```
 
-Luego se usa `python "$CASIOPEA" <subcomando> ...` en cada llamada.
+Luego `python "$CASIOPEA" <subcomando> ...` en cada llamada. Si algo falla al primer intento, `python "$CASIOPEA" doctor` diagnostica credenciales, red, permisos del bot y extensiones instaladas en una sola corrida.
+
+Opciones globales: `--wiki prod|local` o `--api URL` para apuntar a otra instancia. Por defecto, producción.
+
+## Cómo leer los errores
+
+Cada fallo sale por stderr con la forma `categoria: detalle`. La categoría dice qué hacer sin tener que interpretar prosa:
+
+| Categoría | Qué significa | Qué hacer |
+|---|---|---|
+| `not_found` | el título, revisión o archivo no existe | verificar el título exacto con `prefix` o `search` |
+| `permission_denied` | falta el grant, o la página está protegida | avisar a la persona; no reintentar igual |
+| `invalid_input` | argumentos incompatibles o mal formados | corregir y reintentar |
+| `conflict` | edit conflict, o `create` sobre una página existente | volver a traer la página y reconstruir el cambio |
+| `authentication` | credenciales ausentes, inválidas o expiradas | mostrar el mensaje completo a la persona |
+| `rate_limited` | la wiki está frenando al bot | el CLI ya reintenta solo; si persiste, esperar |
+| `upstream_failure` | error no clasificado, red, modo solo lectura | reintentar con cuidado; si persiste, reportar |
 
 ## Operaciones de lectura
 
-### Busqueda full-text
+### Encontrar la página
 
 ```bash
-python "$CASIOPEA" search "termino" --limit 10
+python "$CASIOPEA" search "termino" --limit 10        # busca en el contenido
+python "$CASIOPEA" prefix "Stella Nova/" --limit 50   # busca en los titulos
+python "$CASIOPEA" prefix "Persona" --namespace 10    # solo plantillas
 ```
 
-Devuelve titulos y snippets, **paginando automaticamente** hasta `--limit`. Util cuando el usuario pide algo abierto como "busca paginas sobre X".
+`search` mira el texto; `prefix` mira el título y es la forma correcta de enumerar un árbol de subpáginas o de resolver un título del que solo se sabe el comienzo.
 
-### Wikitexto de una pagina
+### Traer contenido
 
 ```bash
-python "$CASIOPEA" page "Titulo Exacto"
+python "$CASIOPEA" page "Titulo Exacto"                    # wikitexto completo
+python "$CASIOPEA" sections "Titulo Exacto"                # indice de secciones
+python "$CASIOPEA" page "Titulo Exacto" --section 3        # solo una seccion
+python "$CASIOPEA" pages "Plantilla:A" "Plantilla:B"       # hasta 50 de una vez
+python "$CASIOPEA" revision 1965943                        # una version historica
 ```
 
-Devuelve el wikitexto crudo. Cuando el usuario pida "el contenido de la pagina X", usar esto y luego resumir o citar selectivamente, no volcar wikitexto crudo a chat.
+`page` trunca a 50 KB y, cuando lo hace, imprime el índice de secciones para poder volver por la parte que interesa. Nunca volcar wikitexto crudo al chat: resumir o citar selectivamente.
 
-### Paginas de una categoria
+### Medir impacto antes de romper algo
 
 ```bash
-python "$CASIOPEA" category "Travesía" --limit 500
+python "$CASIOPEA" backlinks "Amereida"                    # quien enlaza [[X]]
+python "$CASIOPEA" transclusions "Plantilla:Mis Cursos2"   # quien usa {{X}}
+python "$CASIOPEA" fileusage "Amereida.jpg"                # quien muestra el archivo
 ```
 
-Acepta el nombre con o sin prefijo `Category:`. Pagina automaticamente: con `--limit` alto trae la categoria completa, no solo la primera pagina de resultados.
+Los tres son obligatorios antes de renombrar o borrar. Cero resultados significa que la operación es segura; cualquier otro número es la lista exacta de páginas que se van a romper.
 
-### Backlinks
-
-```bash
-python "$CASIOPEA" backlinks "Amereida"
-```
-
-Lista paginas que enlazan a la pagina dada. Util para entender el alcance de un concepto o autor.
-
-### Transclusiones
-
-```bash
-python "$CASIOPEA" transclusions "Plantilla:Mis Cursos2"
-```
-
-Lista paginas que **transcluyen** (usan `{{X}}`) una plantilla. Distinto de `backlinks`, que solo encuentra `[[X]]`. Imprescindible **antes de borrar o renombrar una plantilla**: dice exactamente que paginas se romperian. 0 resultados = plantilla segura para borrar.
-
-### Uso de un archivo
-
-```bash
-python "$CASIOPEA" fileusage "Amereida.jpg"
-```
-
-Lista paginas que usan un archivo (con o sin prefijo `File:`/`Archivo:`). El equivalente de `transclusions` pero para imagenes/PDFs: imprescindible **antes de borrar o renombrar un archivo**.
-
-### Historial de una pagina
+### Auditar
 
 ```bash
 python "$CASIOPEA" history "Amereida" --limit 20
-```
-
-Devuelve revisiones (timestamp, revid, usuario, tamano, comentario), de la mas nueva a la mas vieja. Util para auditar quien edito que y cuando.
-
-### Cambios recientes de la wiki
-
-```bash
+python "$CASIOPEA" compare 1965943 1965944          # diff entre revisiones
+python "$CASIOPEA" compare "Plantilla:A" "Plantilla:B"
 python "$CASIOPEA" recentchanges --limit 50 --no-bots
-python "$CASIOPEA" recentchanges --user FauveBellenger --type edit
+python "$CASIOPEA" whoami                            # identidad y permisos
+python "$CASIOPEA" siteinfo                          # version y extensiones
 ```
 
-Monitoreo de actividad de la wiki. Filtros opcionales: `--namespace` (id), `--user`, `--type` (`edit|new|log|categorize`), `--no-bots` (excluye ediciones de bot).
-
-### Query semantica (lo distintivo de SMW)
+### Consulta semántica
 
 ```bash
 python "$CASIOPEA" ask '[[Category:Travesía]][[Año::2018]]|?Profesores|?Destino' --format csv --max 1000
+python "$CASIOPEA" properties --grep coleccion       # como se llama de verdad
+python "$CASIOPEA" browse "Amereida"                 # propiedades de una pagina
 ```
 
-Sintaxis SMW estandar. **Pagina automaticamente por offset** hasta `--max` (default 500): las queries de categorias grandes ya no truncan en silencio en ~50 filas. `--format` acepta `table` (default), `csv` (Excel/Numbers) y `json` (datos completos). Si el usuario pone su propio `offset=`/`limit=` en la query, se respeta y no se pagina.
+Particularidades de Casiopea que no son las defaults de SMW:
 
-**Particularidades criticas de Casiopea** (no son las defaults de SMW):
+1. **SMW está en español.** Metapropiedades: `Tiene tipo de datos::X`, `Permite el valor::X`. Tipos: `Página`, `Número`, `Cadena de caracteres`, `Fecha`, `URL`, `Booleano`, `Texto`.
+2. **Las propiedades no usan el prefijo "Tiene como"** vanilla. Son nombres directos en español, con tildes y mayúsculas reales: `Autor`, `Coautores`, `Año`, `Colección`, `Edición`, `Editorial`, `Tipo de Publicación`, `Carreras Relacionadas`, `Palabras Clave`, `Título`, `Ciudad`, `Destino`, `Profesores`.
+3. **Las tildes importan.** `Coleccion` no existe, `Colección` sí, y una propiedad mal escrita devuelve columnas vacías **sin ningún mensaje de error**. Ante columnas vacías inesperadas, `properties --grep` antes que cualquier otra hipótesis.
+4. **Las clases ontológicas core son 22**, todas con formulario `Nuevo X`/`Nueva X`: Acto, Asignatura, Bibliografía, Caso de Estudio, Clase, Curso, Evento, Exposición, Obra, Objeto de Archivo, Observación, Página de Cuaderno, Persona, Presencia en la Sociedad, Proyecto, Proyecto de Investigación, Proyecto de Vinculación con el Medio, Publicación, Revista Académica, Tarea, Trabajo en MADLAB, Travesía.
+5. **Las plantillas con sufijo "2"** (`Persona2`, `Proyecto2`) son pruebas obsoletas. No usarlas ni recomendarlas.
 
-1. **SMW configurado en espanol.** Metapropiedades: `Tiene tipo de datos::X` (no `Has type::X`), `Permite el valor::X` (no `Allows value::X`).
-2. **Tipos de datos en espanol:** `Página`, `Número`, `Cadena de caracteres`, `Fecha`, `URL`, `Booleano`, `Texto`.
-3. **Las propiedades NO usan el prefijo "Tiene como"** vanilla. Son nombres directos en espanol, con tildes y mayusculas reales: `Autor`, `Coautores`, `Año`, `Colección`, `Edición`, `Editorial`, `Tipo de Publicación`, `Carreras Relacionadas`, `Palabras Clave`, `Título`, `Ciudad`, `Destino`, `Profesores`. Las tildes importan: `Coleccion` no existe, `Colección` si.
-4. **Las clases ontologicas core son 22**, todas con formulario `Nuevo X`/`Nueva X`: Acto, Asignatura, Bibliografía, Caso de Estudio, Clase, Curso, Evento, Exposición, Obra, Objeto de Archivo, Observación, Página de Cuaderno, Persona, Presencia en la Sociedad, Proyecto, Proyecto de Investigación, Proyecto de Vinculación con el Medio, Publicación, Revista Académica, Tarea, Trabajo en MADLAB, Travesía.
-5. **Plantillas con sufijo "2"** (`Persona2`, `Proyecto2`, etc.) son pruebas obsoletas. Nunca usarlas en queries ni recomendar consultarlas.
+`ask` pagina automáticamente por offset hasta `--max` (500 por defecto). Si la consulta trae su propio `offset=`/`limit=`, se respeta y no se pagina.
 
-Si una query devuelve filas vacias en las columnas pedidas, el nombre de la propiedad probablemente esta mal escrito (tilde o guion bajo). Usar `browse` sobre una pagina representativa, o consultar `references/recetas.md` y `references/esquema-casiopea.md`.
+## Diseño y maquetación
 
-### Inspeccionar propiedades de una pagina
+Casiopea tiene sistema de diseño. **Antes de escribir wikitexto maquetado, CSS de plantilla o cualquier cosa con clases, cargar `references/stella-nova.md`.** No improvisar: hay construcciones que el sanitizador rechaza, y una página que se ve bien en tema claro puede ser ilegible en oscuro.
+
+Los cuatro hechos que más se olvidan:
+
+1. **Nunca hardcodear color.** Se usan tokens semánticos: `var(--sn-ink)`, `var(--sn-paper)`, `var(--sn-hairline)`. Nunca `#000`, `#fff` ni una primitiva como `--sn-rojo-500`.
+2. **`var()` va sin respaldo.** El sanitizador de TemplateStyles rechaza `var(--x, fallback)` y la hoja no se guarda. Tampoco acepta `light-dark()`, `:is()`, `font-stretch` en porcentaje literal, ni divisiones dentro de `calc()`.
+3. **La maquetación es `grid` / `grilla`**, no Bootstrap. Cada hijo directo es una celda; los modificadores se suman como clases (`cols-3 gap-l align-center`).
+4. **El ritmo vertical usa `--sn-baseline*`**, no la escala de espaciado `--sn-s-*`. Confundirlos deriva la retícula cuando el lector cambia el tamaño de letra.
+
+### El flujo obligatorio de maquetación
 
 ```bash
-python "$CASIOPEA" browse "Amereida"
+# 1. escribir el borrador en un archivo .mw
+# 2. previsualizarlo contra la wiki real, sin guardar nada
+python "$CASIOPEA" parse --from-file borrador.mw --title "Mi página"
+# 3. si toca una plantilla existente, medir impacto
+python "$CASIOPEA" transclusions "Plantilla:X"
+# 4. dry-run con diff, mostrar a la persona, pedir confirmacion
+python "$CASIOPEA" edit "Mi página" --from-file borrador.mw --summary "..."
+# 5. recien entonces, --confirm
+# 6. tras tocar una /style.css, purgar las paginas que la usan
+python "$CASIOPEA" purge "Mi página" --confirm
 ```
 
-Devuelve JSON con todas las propiedades SMW anotadas. Usar antes de armar una query con `ask` cuando no se conozca el esquema.
+El paso 2 es el que evita publicar una plantilla mal escrita: `parse` reporta las plantillas invocadas que no existen, los enlaces rojos y las advertencias del parser, todo antes de que quede nada en el historial.
+
+El paso 6 se olvida siempre y produce media hora de depurar un cambio que ya estaba bien.
 
 ## Operaciones de escritura
 
-Toda escritura **requiere confirmacion explicita del usuario en el chat antes de invocar el comando con `--confirm`**. Sin `--confirm` el script hace dry-run y no toca la wiki. Para `edit/append/create` el dry-run **muestra un diff unificado** del cambio.
+Toda escritura **requiere confirmación explícita de la persona en el chat antes de invocar el comando con `--confirm`**. Sin `--confirm` el script hace dry-run y no toca la wiki; para `edit`, `append` y `create` el dry-run muestra un diff unificado.
 
-Flujo obligatorio cuando el usuario pide editar, crear o mover:
+Flujo obligatorio:
 
-1. Confirmar con el usuario el titulo de la pagina y el contenido exacto.
-2. Hacer una corrida de dry-run primero (sin `--confirm`).
-3. Mostrar al usuario el diff y pedir confirmacion explicita: "lo confirmo" o equivalente.
-4. Solo entonces ejecutar el comando con `--confirm` agregado.
+1. Confirmar el título de la página y el contenido exacto.
+2. Correr el dry-run (sin `--confirm`).
+3. Mostrar el diff y pedir confirmación explícita.
+4. Solo entonces agregar `--confirm`.
 
-Nunca invocar `edit`, `append`, `create`, `move`, `delete` o `upload` con `--confirm` en la primera vuelta, aun si el usuario sono entusiasta. Casiopea es una wiki institucional con historial; las escrituras quedan firmadas como bot y atribuidas en RecentChanges.
-
-### Editar (reemplazar contenido)
+Nunca invocar `edit`, `append`, `create`, `move`, `delete`, `undelete` o `upload` con `--confirm` en la primera vuelta, por entusiasta que haya sonado la petición.
 
 ```bash
-echo "nuevo wikitexto completo" | python "$CASIOPEA" edit "Mi pagina" --summary "Actualizacion seccion X" --confirm
+echo "wikitexto completo" | python "$CASIOPEA" edit "Página" --summary "..." --confirm
+echo "== Nueva sección ==" | python "$CASIOPEA" append "Página" --summary "..." --confirm
+python "$CASIOPEA" create "Página nueva" --from-file borrador.mw --summary "..." --confirm
+python "$CASIOPEA" move "Título viejo" "Título nuevo" --reason "..." --confirm
+python "$CASIOPEA" delete "Página obsoleta" --reason "..." --confirm
+python "$CASIOPEA" undelete "Página borrada" --reason "..." --confirm
+python "$CASIOPEA" purge "Página A" "Página B" --confirm
+python "$CASIOPEA" upload diagrama.png --as "Diagrama.png" --comment "..." --confirm
+python "$CASIOPEA" upload-from-url "https://..." --as "Foto.jpg" --comment "..." --confirm
 ```
 
-### Anadir al final
+Notas:
 
-```bash
-echo "== Nueva seccion ==" | python "$CASIOPEA" append "Mi pagina" --summary "Anade seccion X" --confirm
-```
+- `create` falla si la página ya existe (`createonly=1`); el dry-run avisa. En ese caso, `edit` o `append`.
+- `move` deja redirect por defecto y mueve la página de discusión. `--noredirect` requiere permiso y rompe enlaces.
+- `delete` requiere el grant `Delete pages`. Es reversible con `undelete` mientras la wiki no purgue el archivo, pero eso no lo convierte en gratis.
+- Los archivos de más de 8 MB suben en chunks automáticamente.
+- Los borradores y snapshots de wikitexto usan extensión `.mw`.
 
-### Crear pagina nueva
+## Antes de publicar: volver a traer
 
-```bash
-python "$CASIOPEA" create "Pagina nueva" --from-file borrador.txt --summary "Creacion inicial" --confirm
-```
-
-Falla si la pagina ya existe (`createonly=1`). El dry-run avisa si ya existe; en ese caso usar `edit` o `append`.
-
-### Mover / renombrar
-
-```bash
-python "$CASIOPEA" move "Titulo viejo" "Titulo nuevo" --reason "Normalizacion de nombre" --confirm
-```
-
-Por defecto deja un redirect (no rompe enlaces) y mueve la pagina de discusion. `--noredirect` para no dejar redirect (requiere permiso). Antes de mover una plantilla, correr `transclusions`; antes de mover un archivo, `fileusage`.
-
-### Subir archivo
-
-```bash
-python "$CASIOPEA" upload diagrama.png --as "Diagrama_propuesta.png" --comment "Diagrama del programa" --text "[[Category:Material doctorado]]" --confirm
-```
-
-Archivos grandes (> 8 MB) suben en chunks automaticamente.
-
-### Borrar pagina
-
-Requiere el grant `Delete pages` en `Special:BotPasswords`. Sin grant devuelve `permissiondenied`.
-
-```bash
-python "$CASIOPEA" delete "Pagina obsoleta" --reason "Limpieza: pagina de prueba" --confirm
-```
-
-Borrado MUY cuidadoso: confirmar siempre antes de `--confirm`. Reversible solo via Special:Undelete (requiere sysop, no algo que el bot tenga).
+Las páginas de Casiopea se editan en vivo por personas. Entre que se leyó una página y se propone un cambio pueden haber pasado minutos y una edición ajena. Antes de `--confirm`, **volver a traer la página y reconstruir el cambio sobre la versión actual**. Un `conflict` es la wiki avisando que eso justamente pasó.
 
 ## Credenciales
 
-El skill se autentica con un Bot Password de MediaWiki. Las busca en este orden:
+El script busca en este orden: variables `CASIOPEA_BOT_USER` y `CASIOPEA_BOT_PASS`; el path de `CASIOPEA_CREDENTIALS`; un archivo `credentials` en cualquier carpeta montada cuyo nombre contenga `casiopea`; `~/.config/casiopea/credentials`, `~/casiopea-bot/credentials`, `~/Sites/casiopea-skill/credentials`.
 
-1. Variables de entorno `CASIOPEA_BOT_USER` y `CASIOPEA_BOT_PASS`.
-2. Path indicado en `CASIOPEA_CREDENTIALS`.
-3. Archivo `credentials` en cualquier carpeta montada cuyo nombre contenga `casiopea`.
-4. `~/.config/casiopea/credentials`, `~/casiopea-bot/credentials` o `~/Sites/casiopea-skill/credentials`.
+Si falla por credenciales, mostrar el mensaje completo del script a la persona: ya guía los siguientes pasos.
 
-Si el script falla con error de credenciales, mostrar al usuario el mensaje completo: el propio script ya guia los siguientes pasos.
+## Cortesía de bot
 
-## Cortesia de bot (automatica)
-
-El script ya manda `maxlag=5` y `assert=user` en cada llamada, y reintenta con backoff ante `maxlag`, `ratelimited` o HTTP 429/503. Ante `badtoken` en una escritura refresca el CSRF y reintenta una vez. No hace falta espaciar llamadas manualmente para volumenes moderados; para miles de paginas, preferir el dump XML.
-
-## Errores comunes y como diagnosticar
-
-- **Login Failed: WrongPass** → el usuario es `Usuario@NombreBot`, no solo `Usuario`. Confirmar con el usuario.
-- **Query semantica devuelve columnas vacias** → propiedad mal escrita. Correr `browse` o revisar `references/recetas.md`.
-- **`createonly` falla con "articleexists"** → la pagina ya existe. Confirmar si reemplazar (`edit`) o anadir (`append`).
-- **Edit retorna `code: protectedpage`** → el bot no tiene grant para paginas protegidas. Avisar; no insistir.
-- **`code: assertuserfailed`** → la sesion se cayo. Re-login (el CLI lo hace al reinvocar).
+Automática. El script manda `maxlag=5` y `assert=user` en cada llamada, y reintenta con backoff ante `maxlag`, `ratelimited` o HTTP 429/503. Ante `badtoken` refresca el CSRF y reintenta una vez. No hace falta espaciar llamadas a mano; para miles de páginas, preferir el dump XML.
 
 ## Referencias internas
 
-- `references/recetas.md`: recetas de query SMW listas para usar (travesias por anio, publicaciones por autor, observaciones de un proyecto, exportar categoria a CSV) y flujo de auditoria/limpieza de plantillas `*2`. Cargar primero cuando el usuario pida algo tabular.
-- `references/esquema-casiopea.md`: las 22 clases ontologicas core con sus propiedades, campos de formulario y queries de ejemplo. Cargar para armar una query no trivial sin descubrir el esquema con `browse`.
-- `references/mediawiki-api.md`: detalles de la API de MediaWiki y SMW, parametros completos de cada accion, errores comunes.
+Cargar bajo demanda, no todas de entrada:
+
+- `references/stella-nova.md` — **doctrina gráfica**: tokens semánticos, clases opt-in del skin, la grilla, las palabras mágicas y lo que el sanitizador rechaza. Cargar antes de maquetar o escribir CSS.
+- `references/recetas-diseno.md` — patrones de wikitexto listos para adaptar: portada a sangre, galería, ficha, listado semántico en tarjetas, plantilla con TemplateStyles.
+- `references/stella-nova-inventario.md` — inventario generado de todos los tokens declarados, con su valor. Regenerable con `python "$CASIOPEA" sn-sync`.
+- `references/recetas.md` — consultas SMW listas para usar y flujo de auditoría de plantillas `*2`. Cargar primero cuando se pida algo tabular.
+- `references/esquema-casiopea.md` — las 22 clases ontológicas con sus propiedades y campos de formulario. Cargar para armar una consulta no trivial sin descubrir el esquema con `browse`.
+- `references/mediawiki-api.md` — parámetros completos de cada acción de la API.

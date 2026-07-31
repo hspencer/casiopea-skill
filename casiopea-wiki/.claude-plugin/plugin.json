@@ -1,11 +1,12 @@
 {
   "name": "casiopea",
-  "version": "0.4.0",
-  "description": "Acceso autenticado a la wiki Casiopea de la e[ad] PUCV (Semantic MediaWiki) como bot: busqueda full-text, lectura, queries semanticas SMW, exportacion CSV/JSON, y escrituras con dry-run y diff obligatorios. Comandos /casiopea:leer, :consultar, :escribir, :auditar.",
+  "version": "0.5.0",
+  "description": "Opera la wiki Casiopea de la e[ad] PUCV (Semantic MediaWiki + skin Stella Nova) desde un agente: busqueda, lectura por secciones y en lote, consultas SMW con exportacion CSV/JSON, auditoria de impacto, maquetacion conforme al sistema de diseno, y escrituras con ensayo previo y diff obligatorios. Comandos /casiopea:leer, :consultar, :maquetar, :escribir, :auditar. Incluye servidor MCP para clientes que no ejecutan scripts.",
   "author": {
     "name": "e[ad] PUCV"
   },
   "homepage": "https://wiki.ead.pucv.cl",
+  "repository": "https://github.com/hspencer/casiopea-skill",
   "license": "MIT",
   "keywords": [
     "casiopea",
@@ -14,7 +15,18 @@
     "mediawiki",
     "wiki",
     "smw",
+    "semantic-mediawiki",
+    "stella-nova",
     "arquitectura",
-    "diseno"
-  ]
+    "diseno",
+    "mcp"
+  ],
+  "userConfig": {
+    "credentialsPath": {
+      "type": "file",
+      "title": "Archivo de credenciales",
+      "description": "Ruta a un archivo con CASIOPEA_BOT_USER y CASIOPEA_BOT_PASS, obtenidos en https://wiki.ead.pucv.cl/Special:BotPasswords. Opcional: sin esto el skill busca en ~/.config/casiopea/credentials y otras rutas conocidas.",
+      "required": false
+    }
+  }
 }

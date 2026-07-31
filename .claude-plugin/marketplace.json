@@ -6,18 +6,18 @@
   },
   "metadata": {
     "description": "Plugins de la Escuela de Arquitectura y Diseno PUCV.",
-    "version": "1.0.0"
+    "version": "1.1.0"
   },
   "plugins": [
     {
       "name": "casiopea",
       "source": "./casiopea-wiki",
-      "description": "Acceso autenticado a la wiki Casiopea (Semantic MediaWiki): busqueda, lectura, queries SMW, exportacion CSV/JSON, y escrituras con dry-run y diff. Comandos /casiopea:leer, :consultar, :escribir, :auditar.",
-      "version": "0.4.0",
-      "author": {
-        "name": "e[ad] PUCV"
-      },
-      "keywords": ["casiopea", "ead", "pucv", "mediawiki", "smw", "wiki"]
+      "description": "Opera la wiki Casiopea (Semantic MediaWiki + skin Stella Nova): busqueda, lectura, consultas SMW, exportacion CSV/JSON, auditoria de impacto, maquetacion conforme al sistema de diseno, y escrituras con ensayo previo y diff. Comandos /casiopea:leer, :consultar, :maquetar, :escribir, :auditar.",
+      "version": "0.5.0",
+      "author": { "name": "e[ad] PUCV" },
+      "homepage": "https://github.com/hspencer/casiopea-skill",
+      "license": "MIT",
+      "keywords": ["casiopea", "ead", "pucv", "mediawiki", "smw", "wiki", "stella-nova", "mcp"]
     }
   ]
 }

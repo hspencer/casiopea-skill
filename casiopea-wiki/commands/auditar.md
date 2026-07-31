@@ -1,26 +1,31 @@
 ---
-description: "Monitoreo y revision de impacto en Casiopea (rol admin): cambios recientes, transclusiones de una plantilla, uso de un archivo. Solo lectura."
-argument-hint: "[que auditar, ej: cambios de hoy / quien usa Plantilla:Persona2]"
+description: "Monitoreo, diagnostico e impacto en Casiopea: recentchanges, history, compare, transclusions, fileusage, whoami, siteinfo, doctor. Rol admin, solo lectura."
+argument-hint: "[que auditar, ej: que cambio hoy / quien usa la Plantilla:Persona2]"
 allowed-tools: ["Bash", "Read", "Skill"]
 ---
 
 # Casiopea — modo auditoria
 
-Estas en modo auditoria de la wiki Casiopea (https://wiki.ead.pucv.cl). Pensado para el administrador: vigilar actividad y medir impacto antes de limpiar.
+Estas en modo administracion de la wiki Casiopea. Todo aca es solo lectura: sirve para entender el estado y el impacto de las cosas antes de tocarlas.
 
-1. **Carga el skill `casiopea`** con la herramienta Skill. Trae la resolucion de `$CASIOPEA` y credenciales.
+1. **Carga el skill `casiopea`** con la herramienta Skill.
 
-2. **Solo verbos de auditoria (lectura):** `recentchanges`, `transclusions`, `fileusage`, y `history` cuando se pida el detalle de una pagina. No escribas nada (eso es `/casiopea:escribir`).
+2. **Verbos:** `recentchanges`, `history`, `compare`, `transclusions`, `fileusage`, `backlinks`, `whoami`, `siteinfo`, `doctor`.
 
-3. **Interpreta `$ARGUMENTS`** y elige el verbo:
-   - "que cambio / actividad / cambios de hoy / de un usuario" → `recentchanges` (filtros `--user`, `--type`, `--no-bots`, `--namespace`)
-   - "quien usa / donde se transcluye la plantilla X" → `transclusions` (si da 0, segura de borrar; si lista paginas de contenido real, NO borrar sin migrar)
-   - "donde se usa el archivo X" → `fileusage`
-   - "historial / quien edito la pagina X" → `history`
+3. **Interpreta `$ARGUMENTS`:**
+   - "que cambio hoy / actividad reciente" → `recentchanges` (con `--no-bots` si interesa la actividad humana)
+   - "quien edito X" → `history`
+   - "que cambio entre estas dos versiones" → `compare`
+   - "quien usa la plantilla X" → `transclusions`
+   - "quien usa el archivo X" → `fileusage`
+   - "se puede borrar X" → `transclusions` o `fileusage` segun corresponda, y responde con el numero
+   - "que permisos tengo / con que cuenta estoy" → `whoami`
+   - "que version de MediaWiki / que extensiones hay" → `siteinfo`
+   - "por que no funciona el skill" → `doctor`
 
-4. Cuando reportes impacto de una plantilla/archivo, distingue paginas de contenido real (ns0) de Discusiones, y di explicitamente si es seguro borrar/renombrar. Recuerda que la limpieza efectiva la ejecutan los administradores, no este modo.
+4. **Responde con el numero, no con una impresion.** "Se puede borrar" no es una respuesta: "0 paginas la transcluyen, se puede borrar" o "37 paginas la transcluyen, borrarla rompe esas 37" si lo es.
 
-5. Si no hay argumento, ofrece en una linea las auditorias posibles y espera.
+5. Si no hay argumento, ofrece en una linea las auditorias disponibles.
 
 ## Instruccion
 

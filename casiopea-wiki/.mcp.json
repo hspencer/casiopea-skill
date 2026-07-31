@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "casiopea": {
+      "command": "python3",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/skills/casiopea/scripts/casiopea_mcp.py"],
+      "env": {
+        "CASIOPEA_CREDENTIALS": "${user_config.credentialsPath}"
+      }
+    }
+  }
+}
