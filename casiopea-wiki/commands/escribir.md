@@ -10,12 +10,12 @@ Estas en modo escritura de la wiki Casiopea (https://wiki.ead.pucv.cl). Wiki ins
 
 1. **Carga el skill `casiopea`** con la herramienta Skill. Trae la resolucion de `$CASIOPEA`, credenciales y el flujo de salvaguarda.
 
-2. **Verbos disponibles:** `edit`, `append`, `create`, `move`, `upload`, `upload-from-url`, `delete`, `undelete`, `purge`. Mapea la instruccion al verbo correcto: reemplazar→`edit`, anadir→`append`, nueva→`create`, renombrar→`move`, subir→`upload`, borrar→`delete`, restaurar→`undelete`.
+2. **Verbos disponibles:** `edit`, `replace`, `append`, `create`, `move`, `upload`, `upload-from-url`, `delete`, `undelete`, `purge`. Mapea la instruccion al verbo correcto: reemplazar todo→`edit`, cambiar un fragmento→`replace`, anadir→`append`, nueva→`create`, renombrar→`move`, subir→`upload`, borrar→`delete`, restaurar→`undelete`.
 
 3. **Flujo OBLIGATORIO, sin excepciones** (aunque la persona suene apurada o entusiasta):
    1. Confirma el titulo y el contenido o efecto exacto.
    2. Si el contenido lleva maquetacion, plantillas o clases: **previsualizalo con `parse` antes de nada**. Una plantilla mal escrita se ve en el resultado de `parse`, no en el diff.
-   3. Corre el comando **sin `--confirm`** (dry-run). Para `edit`/`append`/`create` esto imprime un diff unificado.
+   3. Corre el comando **sin `--confirm`** (dry-run). Para `edit`/`replace`/`append`/`create` esto imprime un diff unificado; en `edit` y `replace` anota la revision base (`base rN`) y confirma con `--base-rev N`.
    4. Muestra el dry-run al usuario y pide confirmacion explicita.
    5. Solo entonces re-invoca el **mismo** comando agregando `--confirm`.
 

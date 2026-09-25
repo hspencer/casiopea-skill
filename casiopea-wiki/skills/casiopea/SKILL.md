@@ -34,7 +34,11 @@ echo "CASIOPEA=$CASIOPEA"
 
 Luego `python "$CASIOPEA" <subcomando> ...` en cada llamada. Si algo falla al primer intento, `python "$CASIOPEA" doctor` diagnostica credenciales, red, permisos del bot y extensiones instaladas en una sola corrida.
 
-Opciones globales: `--wiki prod|local` o `--api URL` para apuntar a otra instancia. Por defecto, producción.
+Opciones globales: `--wiki prod|local` o `--api URL` para apuntar a otra instancia. Por defecto, producción (o lo que diga `CASIOPEA_DEFAULT_WIKI`).
+
+### Si existe un espejo local
+
+`local` es un espejo de desarrollo en `http://casiopea.local` que solo tiene quien lo montó. Existe para el skill únicamente si hay credenciales `CASIOPEA_LOCAL_BOT_USER` y `CASIOPEA_LOCAL_BOT_PASS`; sin ellas, el skill trabaja solo con producción y `doctor` lo informa como opcional. Cuando está configurado, el servidor MCP agrega un parámetro `wiki` a cada herramienta y cada resultado dice en qué wiki actuó. La política de uso (por ejemplo, probar siempre en el espejo antes de publicar) es de quien lo tiene y va en sus propias instrucciones de proyecto, fuera de este skill. El espejo guarda los textos pero no siempre los archivos subidos: comprobar una imagen con `file` en la wiki de destino antes de pasar una página de una a otra.
 
 ## Cómo leer los errores
 
@@ -70,6 +74,8 @@ python "$CASIOPEA" sections "Titulo Exacto"                # indice de secciones
 python "$CASIOPEA" page "Titulo Exacto" --section 3        # solo una seccion
 python "$CASIOPEA" pages "Plantilla:A" "Plantilla:B"       # hasta 50 de una vez
 python "$CASIOPEA" revision 1965943                        # una version historica
+python "$CASIOPEA" file "Archivo:Foto.jpg"                 # existe?, autor, tamano, URLs
+python "$CASIOPEA" file-download "Foto.jpg" --width 800    # baja una miniatura
 ```
 
 `page` trunca a 50 KB y, cuando lo hace, imprime el índice de secciones para poder volver por la parte que interesa. Nunca volcar wikitexto crudo al chat: resumir o citar selectivamente.
@@ -154,10 +160,11 @@ Flujo obligatorio:
 3. Mostrar el diff y pedir confirmación explícita.
 4. Solo entonces agregar `--confirm`.
 
-Nunca invocar `edit`, `append`, `create`, `move`, `delete`, `undelete` o `upload` con `--confirm` en la primera vuelta, por entusiasta que haya sonado la petición.
+Nunca invocar `edit`, `replace`, `append`, `create`, `move`, `delete`, `undelete` o `upload` con `--confirm` en la primera vuelta, por entusiasta que haya sonado la petición.
 
 ```bash
-echo "wikitexto completo" | python "$CASIOPEA" edit "Página" --summary "..." --confirm
+python "$CASIOPEA" replace "Plantilla:X" --find "texto exacto" --with "texto nuevo" --base-rev 123 --confirm
+echo "wikitexto completo" | python "$CASIOPEA" edit "Página" --summary "..." --base-rev 123 --confirm
 echo "== Nueva sección ==" | python "$CASIOPEA" append "Página" --summary "..." --confirm
 python "$CASIOPEA" create "Página nueva" --from-file borrador.mw --summary "..." --confirm
 python "$CASIOPEA" move "Título viejo" "Título nuevo" --reason "..." --confirm
@@ -170,6 +177,8 @@ python "$CASIOPEA" upload-from-url "https://..." --as "Foto.jpg" --comment "..."
 
 Notas:
 
+- Para cambiar una parte de una página se usa `replace`: viaja solo el fragmento, y si `--find` no aparece o aparece más de una vez no escribe nada. Se amplía el fragmento con texto de alrededor hasta que sea único.
+- El dry-run de `edit` y `replace` muestra la revisión base (`base r123`). Pasarla como `--base-rev` al confirmar hace que la escritura aborte con `conflict` si alguien editó la página entre el ensayo y la confirmación.
 - `create` falla si la página ya existe (`createonly=1`); el dry-run avisa. En ese caso, `edit` o `append`.
 - `move` deja redirect por defecto y mueve la página de discusión. `--noredirect` requiere permiso y rompe enlaces.
 - `delete` requiere el grant `Delete pages`. Es reversible con `undelete` mientras la wiki no purgue el archivo, pero eso no lo convierte en gratis.
@@ -178,11 +187,13 @@ Notas:
 
 ## Antes de publicar: volver a traer
 
-Las páginas de Casiopea se editan en vivo por personas. Entre que se leyó una página y se propone un cambio pueden haber pasado minutos y una edición ajena. Antes de `--confirm`, **volver a traer la página y reconstruir el cambio sobre la versión actual**. Un `conflict` es la wiki avisando que eso justamente pasó.
+Las páginas de Casiopea se editan en vivo por personas. Entre que se leyó una página y se propone un cambio pueden haber pasado minutos y una edición ajena. Antes de `--confirm`, **volver a traer la página y reconstruir el cambio sobre la versión actual**, y confirmar con `--base-rev` (en el MCP, `latestId`) igual a la revisión que mostró el ensayo. Un `conflict` es la wiki avisando que eso pasó.
 
 ## Credenciales
 
-El script busca en este orden: variables `CASIOPEA_BOT_USER` y `CASIOPEA_BOT_PASS`; el path de `CASIOPEA_CREDENTIALS`; un archivo `credentials` en cualquier carpeta montada cuyo nombre contenga `casiopea`; `~/.config/casiopea/credentials`, `~/casiopea-bot/credentials`, `~/Sites/casiopea-skill/credentials`.
+Producción usa `CASIOPEA_PROD_BOT_USER` y `CASIOPEA_PROD_BOT_PASS`, o los genéricos `CASIOPEA_BOT_USER` y `CASIOPEA_BOT_PASS` de siempre. El espejo local, si existe, usa `CASIOPEA_LOCAL_BOT_USER` y `CASIOPEA_LOCAL_BOT_PASS`: cada wiki tiene su propio bot password y el de una no sirve en la otra.
+
+Cada clave se busca primero en el entorno y luego en el primer archivo que exista, en este orden: el path de `CASIOPEA_CREDENTIALS`; un archivo `credentials` en cualquier carpeta montada cuyo nombre contenga `casiopea`; `~/.config/casiopea/credentials`, `~/casiopea-bot/credentials`, `~/Sites/casiopea-skill/credentials`.
 
 Si falla por credenciales, mostrar el mensaje completo del script a la persona: ya guía los siguientes pasos.
 

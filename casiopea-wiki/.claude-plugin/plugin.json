@@ -1,6 +1,6 @@
 {
   "name": "casiopea",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Opera la wiki Casiopea de la e[ad] PUCV (Semantic MediaWiki + skin Stella Nova) desde un agente: busqueda, lectura por secciones y en lote, consultas SMW con exportacion CSV/JSON, auditoria de impacto, maquetacion conforme al sistema de diseno, y escrituras con ensayo previo y diff obligatorios. Comandos /casiopea:leer, :consultar, :maquetar, :escribir, :auditar. Incluye servidor MCP para clientes que no ejecutan scripts.",
   "author": {
     "name": "e[ad] PUCV"

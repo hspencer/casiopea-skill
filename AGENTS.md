@@ -27,7 +27,7 @@ docs/                           material de trabajo, no se empaqueta
 Dos formas de usarlo, con el mismo código detrás:
 
 - **CLI**: `python3 casiopea-wiki/skills/casiopea/scripts/casiopea.py <verbo>`. Sin dependencias externas, Python 3.10+.
-- **MCP**: `python3 casiopea-wiki/skills/casiopea/scripts/casiopea_mcp.py` sobre stdio. 26 herramientas y las referencias publicadas como recursos MCP.
+- **MCP**: `python3 casiopea-wiki/skills/casiopea/scripts/casiopea_mcp.py` sobre stdio. 29 herramientas y las referencias publicadas como recursos MCP.
 
 ## Configuración
 
@@ -47,15 +47,17 @@ CASIOPEA_BOT_PASS=contrasena-larga
 
 El sufijo `@nombre-del-bot` es obligatorio. Sin él, MediaWiki responde `WrongPass` y parece un problema de contraseña.
 
+Wikis: producción por defecto. Un espejo de desarrollo (`--wiki local`, `http://casiopea.local`) solo existe si hay `CASIOPEA_LOCAL_BOT_USER` y `CASIOPEA_LOCAL_BOT_PASS`; cada wiki tiene su propio bot. `CASIOPEA_PROD_BOT_USER`/`_PASS` equivalen a las claves genéricas. `CASIOPEA_DEFAULT_WIKI` fija a cuál van las llamadas que no dicen cuál.
+
 Otras variables: `CASIOPEA_API_URL` (endpoint alternativo), `CASIOPEA_MAX_BYTES` (presupuesto de truncado, 50000 por defecto).
 
 Diagnóstico en una sola corrida: `python3 .../casiopea.py doctor`.
 
 ## Verbos del CLI
 
-Lectura, sin efectos: `search`, `prefix`, `page`, `pages`, `sections`, `revision`, `category`, `backlinks`, `transclusions`, `fileusage`, `history`, `compare`, `recentchanges`, `ask`, `browse`, `properties`, `parse`, `siteinfo`, `whoami`.
+Lectura, sin efectos: `search`, `prefix`, `page`, `pages`, `sections`, `revision`, `category`, `backlinks`, `transclusions`, `fileusage`, `history`, `compare`, `recentchanges`, `ask`, `browse`, `properties`, `parse`, `siteinfo`, `whoami`, `file`, `file-download`.
 
-Escritura, requieren `--confirm`: `edit`, `append`, `create`, `move`, `delete`, `undelete`, `purge`, `upload`, `upload-from-url`.
+Escritura, requieren `--confirm`: `edit`, `replace`, `append`, `create`, `move`, `delete`, `undelete`, `purge`, `upload`, `upload-from-url`.
 
 Mantenimiento: `doctor`, `sn-sync`.
 

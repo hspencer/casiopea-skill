@@ -35,6 +35,7 @@ import json
 import os
 import sys
 import traceback
+import urllib.parse
 from typing import Any
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -79,27 +80,56 @@ RESOURCES = [
 
 
 # -----------------------------------------------------------------------------
-# Cliente perezoso
+# Clientes perezosos, uno por wiki
 # -----------------------------------------------------------------------------
 
-_client: cw.CasiopeaClient | None = None
+_clients: dict[str, cw.CasiopeaClient] = {}
 
 
-def client() -> cw.CasiopeaClient:
+def available_wikis() -> list[str]:
     """
-    Devuelve el cliente autenticado, creandolo en la primera llamada.
+    Wikis con credenciales en esta instalacion. Casi siempre solo 'prod'; el
+    espejo local aparece unicamente si alguien configuro CASIOPEA_LOCAL_*.
+    """
+    return cw.configured_wikis() or ["prod"]
+
+
+def default_wiki() -> str:
+    """
+    Wiki a la que va una llamada que no dice cual.
+
+    CASIOPEA_DEFAULT_WIKI permite que quien tiene espejo local trabaje contra
+    el por defecto y vaya a produccion solo cuando lo pide explicitamente. Si
+    esa wiki no tiene credenciales, se cae a la primera configurada.
+    """
+    wikis = available_wikis()
+    wanted = cw.canonical_wiki(os.environ.get("CASIOPEA_DEFAULT_WIKI") or wikis[0])
+    return wanted if wanted in wikis else wikis[0]
+
+
+def client(wiki: str | None = None) -> cw.CasiopeaClient:
+    """
+    Devuelve el cliente autenticado de una wiki, creandolo en la primera
+    llamada.
 
     Es perezoso a proposito: un cliente MCP arranca el servidor al abrir la
     aplicacion, mucho antes de que nadie pida nada. Hacer login en ese momento
     gastaria una sesion por cada arranque y fallaria ruidosamente en maquinas
     donde las credenciales aun no estan puestas.
     """
-    global _client
-    if _client is None:
-        api_url, user, password = cw.load_credentials()
-        _client = cw.CasiopeaClient(api_url, user, password)
-        _client.login()
-    return _client
+    w = cw.canonical_wiki(wiki) if wiki else default_wiki()
+    if w not in _clients:
+        api_url, user, password = cw.load_credentials(w)
+        c = cw.CasiopeaClient(api_url, user, password, wiki=w)
+        c.login()
+        _clients[w] = c
+    return _clients[w]
+
+
+def forget_client(wiki: str | None) -> None:
+    """Descarta la sesion de una wiki para forzar un login nuevo (sesion vencida)."""
+    w = cw.canonical_wiki(wiki) if wiki else default_wiki()
+    _clients.pop(w, None)
 
 
 # -----------------------------------------------------------------------------
@@ -185,6 +215,9 @@ TOOLS: list[dict[str, Any]] = [
             "title": _s("Titulo exacto, con prefijo de namespace si corresponde."),
             "section": _s("Numero de seccion: 0 es el encabezado, 1..N las secciones."),
             "maxBytes": _i("Presupuesto de bytes antes de truncar.", default=50000),
+            "metadata": _b("Antepone la revision vigente (latestRevisionId) y su fecha. "
+                           "Ese numero se pasa despues como latestId a update-page o "
+                           "find-replace para detectar ediciones ajenas."),
         }},
     },
     {
@@ -369,6 +402,31 @@ TOOLS: list[dict[str, Any]] = [
         "inputSchema": {"type": "object", "properties": {}},
     },
     {
+        "name": "get-file",
+        "title": "Datos de un archivo",
+        "description": "Devuelve los metadatos de un archivo subido: si existe, quien "
+                       "y cuando lo subio, tamano, tipo MIME, dimensiones y las URLs del "
+                       "original y de su pagina. Sirve para comprobar una imagen antes "
+                       "de usarla en una ficha, o antes de pasar una pagina de una wiki "
+                       "a otra. Para ver la imagen, usar get-file-data.",
+        "annotations": RO,
+        "inputSchema": {"type": "object", "required": ["title"], "properties": {
+            "title": _s("Nombre del archivo, con o sin prefijo 'Archivo:'."),
+        }},
+    },
+    {
+        "name": "get-file-data",
+        "title": "Ver un archivo",
+        "description": "Descarga una version escalada de un archivo y la devuelve como "
+                       "imagen para mirarla. La wiki rasteriza imagenes, SVG y PDF; otros "
+                       "tipos fallan. Para metadatos o la URL, usar get-file.",
+        "annotations": RO,
+        "inputSchema": {"type": "object", "required": ["title"], "properties": {
+            "title": _s("Nombre del archivo, con o sin prefijo 'Archivo:'."),
+            "width": _i("Ancho en pixeles de la version escalada.", default=1024),
+        }},
+    },
+    {
         "name": "whoami",
         "title": "Quien soy",
         "description": "Devuelve la identidad con la que esta autenticada la sesion: "
@@ -383,12 +441,14 @@ TOOLS: list[dict[str, Any]] = [
     {
         "name": "update-page",
         "title": "Actualizar pagina",
-        "description": "Reemplaza el contenido de una pagina existente. Sin confirm "
-                       "devuelve el diff unificado del cambio y no modifica nada. La "
-                       "edicion queda registrada como bot en los cambios recientes, "
-                       "atribuida a la cuenta duena del bot password. Para agregar al "
-                       "final sin tocar lo anterior, usar append-to-page; para una "
-                       "pagina que aun no existe, create-page.",
+        "description": "Reemplaza el contenido de una pagina existente; falla si la "
+                       "pagina no existe. Sin confirm devuelve el diff unificado y la "
+                       "revision base, y no modifica nada. Con latestId rechaza la "
+                       "escritura si alguien edito la pagina despues de esa revision. "
+                       "La edicion queda registrada como bot, atribuida a la cuenta "
+                       "duena del bot password. Para cambiar solo un fragmento, usar "
+                       "find-replace; para agregar al final, append-to-page; para una "
+                       "pagina nueva, create-page.",
         "annotations": DESTR,
         "inputSchema": {"type": "object", "required": ["title", "text"], "properties": {
             "title": _s("Titulo exacto de la pagina a reemplazar."),
@@ -396,6 +456,31 @@ TOOLS: list[dict[str, Any]] = [
             "summary": _s("Resumen de edicion que vera quien lea el historial.",
                           default="Edicion via casiopea MCP"),
             "section": _s("Limita el reemplazo a una seccion."),
+            "latestId": _i("Revision sobre la que se preparo el cambio (la da get-page "
+                           "con metadata, o el ensayo). Si la pagina cambio desde "
+                           "entonces, la escritura se rechaza con conflict."),
+            "confirm": CONFIRM,
+        }},
+    },
+    {
+        "name": "find-replace",
+        "title": "Reemplazar un fragmento",
+        "description": "Cambia un fragmento exacto de una pagina y deja el resto byte "
+                       "por byte, sin reenviar la pagina entera. El fragmento debe "
+                       "aparecer una sola vez (en la pagina o en la seccion pedida): si "
+                       "no aparece o aparece varias veces, no escribe nada y pide "
+                       "ampliarlo. Sin confirm devuelve el diff. Es la forma segura de "
+                       "tocar una plantilla grande. Para reescribir todo, update-page.",
+        "annotations": DESTR,
+        "inputSchema": {"type": "object", "required": ["title", "find", "replace"],
+                        "properties": {
+            "title": _s("Titulo exacto."),
+            "find": _s("Texto exacto a buscar, espacios y saltos de linea incluidos."),
+            "replace": _s("Texto que lo reemplaza; vacio borra el fragmento."),
+            "section": _s("Buscar solo dentro de esta seccion."),
+            "summary": _s("Resumen de edicion.", default="Edicion via casiopea MCP"),
+            "latestId": _i("Revision base; si la pagina cambio desde entonces, se "
+                           "rechaza con conflict."),
             "confirm": CONFIRM,
         }},
     },
@@ -526,6 +611,31 @@ TOOLS: list[dict[str, Any]] = [
 ]
 
 
+def tools_for_session() -> list[dict[str, Any]]:
+    """
+    Lista de herramientas tal como se anuncia al cliente.
+
+    Si la instalacion solo tiene produccion (el caso de casi todos), las
+    herramientas se anuncian tal cual, sin parametro de wiki. Si ademas hay un
+    espejo configurado, cada herramienta gana un parametro `wiki` con las
+    opciones disponibles y la wiki por defecto: asi el modelo no ve una opcion
+    que en esa maquina no funciona.
+    """
+    wikis = available_wikis()
+    if len(wikis) < 2:
+        return TOOLS
+    dflt = default_wiki()
+    desc = ("Wiki destino: 'prod' es https://wiki.ead.pucv.cl y 'local' el espejo "
+            f"de desarrollo en http://casiopea.local. Por defecto, '{dflt}'.")
+    out = []
+    for tool in TOOLS:
+        t = json.loads(json.dumps(tool))
+        t["inputSchema"].setdefault("properties", {})["wiki"] = _s(
+            desc, enum=wikis, default=dflt)
+        out.append(t)
+    return out
+
+
 # -----------------------------------------------------------------------------
 # Ejecucion de herramientas
 # -----------------------------------------------------------------------------
@@ -539,9 +649,11 @@ def _truncate(text: str, max_bytes: int, note: str) -> str:
             + f"\n\n[truncado en {max_bytes} de {len(raw)} bytes. {note}]")
 
 
-def _dry_run(title: str, accion: str, diff: str | None = None) -> str:
-    """Texto uniforme del ensayo previo, con el diff cuando lo hay."""
-    out = [f"ENSAYO — no se modifico nada en la wiki.",
+def _dry_run(c: cw.CasiopeaClient, title: str, accion: str,
+             diff: str | None = None) -> str:
+    """Texto uniforme del ensayo previo, con la wiki destino y el diff cuando lo hay."""
+    out = ["ENSAYO: no se modifico nada en la wiki.",
+           f"  Wiki: {c.wiki} ({c.api_url.rsplit('/', 1)[0]})",
            f"  Pagina: {title}",
            f"  Operacion: {accion}"]
     if diff:
@@ -551,16 +663,27 @@ def _dry_run(title: str, accion: str, diff: str | None = None) -> str:
     return "\n".join(out)
 
 
-def call_tool(name: str, args: dict[str, Any]) -> str:
+def _write_result(c: cw.CasiopeaClient, res: dict[str, Any]) -> str:
+    """Resultado de una edicion, rotulado con la wiki y la URL de la pagina."""
+    title = res.get("title", "")
+    base = c.api_url.rsplit("/", 1)[0]
+    url = f"{base}/index.php?title={urllib.parse.quote(title.replace(' ', '_'))}"
+    head = (f"Guardado en {c.wiki}: {title} · r{res.get('newrevid', res.get('oldrevid', '?'))}"
+            + (" (sin cambios)" if res.get("nochange") else "") + f"\n{url}\n\n")
+    return head + json.dumps(res, ensure_ascii=False)
+
+
+def call_tool(name: str, args: dict[str, Any]) -> str | list[dict[str, Any]]:
     """
     Despacha una llamada de herramienta y devuelve texto plano.
 
     Toda herramienta devuelve texto, no JSON estructurado, salvo donde el JSON
     ES el resultado util (smw-browse, smw-ask con format json). Es deliberado:
     el consumidor es un modelo de lenguaje, y el texto tabulado se lee mejor y
-    gasta menos tokens que un objeto anidado.
+    gasta menos tokens que un objeto anidado. La excepcion es get-file-data,
+    que devuelve bloques de contenido (una imagen) en vez de texto.
     """
-    c = client()
+    c = client(args.get("wiki"))
 
     if name == "search-pages":
         rs = c.search(args["term"], limit=args.get("limit", 20))
@@ -574,20 +697,28 @@ def call_tool(name: str, args: dict[str, Any]) -> str:
         return "\n".join(titles) or "Sin resultados."
 
     if name == "get-page":
+        head = ""
+        if args.get("metadata"):
+            meta = c.page_meta(args["title"])
+            if not meta["exists"]:
+                raise cw.CasiopeaError("not_found", f"la pagina '{args['title']}' no existe en {c.wiki}.")
+            head = (f"latestRevisionId: {meta['revid']}\n"
+                    f"timestamp: {meta['timestamp']}\nwiki: {c.wiki}\n\n")
         if args.get("section") is not None:
-            return c.page_section(args["title"], str(args["section"])) or "(seccion vacia)"
+            return head + (c.page_section(args["title"], str(args["section"]))
+                           or "(seccion vacia)")
         text = c.page(args["title"])
         if not text:
-            return f"not_found: la pagina '{args['title']}' no existe o esta vacia."
+            raise cw.CasiopeaError("not_found", f"la pagina '{args['title']}' no existe o esta vacia en {c.wiki}.")
         max_bytes = args.get("maxBytes", 50000)
         if len(text.encode("utf-8")) > max_bytes:
             secs = c.sections(args["title"])
             listado = ", ".join(f"{s.get('index')} ({s.get('line', '').strip()})"
                                 for s in secs[:40] if s.get("index"))
-            return _truncate(text, max_bytes,
-                             f"Secciones: 0 (encabezado), {listado}. "
-                             "Volver a llamar con section=N para una en concreto.")
-        return text
+            return head + _truncate(text, max_bytes,
+                                    f"Secciones: 0 (encabezado), {listado}. "
+                                    "Volver a llamar con section=N para una en concreto.")
+        return head + text
 
     if name == "get-pages":
         res = c.pages(args["titles"])
@@ -618,7 +749,7 @@ def call_tool(name: str, args: dict[str, Any]) -> str:
     if name == "get-page-history":
         revs = c.history(args["title"], limit=args.get("limit", 20))
         if not revs:
-            return f"not_found: sin historial para '{args['title']}'."
+            raise cw.CasiopeaError("not_found", f"sin historial para '{args['title']}'.")
         return "\n".join(
             f"{r.get('timestamp')}  r{r.get('revid')}  {r.get('user')}  "
             f"({r.get('size')}b)  {(r.get('comment') or '').strip()}" for r in revs)
@@ -745,25 +876,78 @@ def call_tool(name: str, args: dict[str, Any]) -> str:
 
     # ------------------------------------------------------------- escrituras
     if name == "update-page":
-        current = c.page(args["title"])
+        meta = c.check_base(args["title"], args.get("latestId"))
+        if not meta["exists"]:
+            raise cw.CasiopeaError("not_found", f"la pagina '{args['title']}' no existe en {c.wiki}. "
+                    "Para crearla, usar create-page.")
         if not args.get("confirm"):
             diff = (None if args.get("section")
-                    else cw._unified_diff(current, args["text"], args["title"]))
-            return _dry_run(args["title"],
-                            f"reemplazar contenido ({len(args['text'])} caracteres)", diff)
+                    else cw._unified_diff(meta["content"], args["text"], args["title"]))
+            return _dry_run(c, args["title"],
+                            f"reemplazar contenido ({len(args['text'])} caracteres) "
+                            f"sobre r{meta['revid']}; confirmar con latestId: "
+                            f"{meta['revid']}", diff)
         res = c.edit(args["title"], text=args["text"], section=args.get("section"),
-                     summary=args.get("summary", "Edicion via casiopea MCP"))
-        return json.dumps(res, ensure_ascii=False)
+                     summary=args.get("summary", "Edicion via casiopea MCP"),
+                     nocreate=True, baserevid=meta["revid"],
+                     basetimestamp=meta["timestamp"])
+        return _write_result(c, res)
+
+    if name == "find-replace":
+        meta = c.check_base(args["title"], args.get("latestId"))
+        if not meta["exists"]:
+            raise cw.CasiopeaError("not_found", f"la pagina '{args['title']}' no existe en {c.wiki}.")
+        section = args.get("section")
+        target = (c.page_section(args["title"], str(section))
+                  if section is not None else meta["content"])
+        proposed = cw.apply_find_replace(target, args["find"], args.get("replace", ""))
+        if not args.get("confirm"):
+            return _dry_run(c, args["title"],
+                            f"reemplazar un fragmento sobre r{meta['revid']}; confirmar "
+                            f"con latestId: {meta['revid']}",
+                            cw._unified_diff(target, proposed, args["title"]))
+        res = c.edit(args["title"], text=proposed,
+                     section=str(section) if section is not None else None,
+                     summary=args.get("summary", "Edicion via casiopea MCP"),
+                     nocreate=True, baserevid=meta["revid"],
+                     basetimestamp=meta["timestamp"])
+        return _write_result(c, res)
+
+    if name == "get-file":
+        info = c.file_info(args["title"])
+        if not info.get("exists"):
+            raise cw.CasiopeaError("not_found", f"no existe {info['title']} en {c.wiki}. El espejo local "
+                    "no tiene los binarios de produccion: un archivo puede estar en una "
+                    "wiki y no en la otra.")
+        keys = ["title", "user", "timestamp", "size", "width", "height", "mime",
+                "url", "descriptionurl", "comment"]
+        return "\n".join(f"{k}: {info.get(k)}" for k in keys if info.get(k) is not None)
+
+    if name == "get-file-data":
+        import base64
+        width = min(int(args.get("width", 1024)), 1568)
+        data, mime, info = c.file_bytes(args["title"], width=width)
+        if not mime.startswith("image/"):
+            raise cw.CasiopeaError("invalid_input", f"{info['title']} es {mime}; no se puede mostrar como "
+                    "imagen. Usar get-file para su URL.")
+        return [
+            {"type": "image", "data": base64.b64encode(data).decode("ascii"),
+             "mimeType": mime},
+            {"type": "text", "text": f"{info['title']} ({info.get('width')}x"
+                                     f"{info.get('height')} original, {c.wiki})"},
+        ]
 
     if name == "append-to-page":
         if not args.get("confirm"):
             current = c.page(args["title"])
+            if not current:
+                raise cw.CasiopeaError("not_found", f"la pagina '{args['title']}' no existe en {c.wiki}.")
             diff = cw._unified_diff(current, current + args["text"], args["title"])
-            return _dry_run(args["title"],
+            return _dry_run(c, args["title"],
                             f"anadir {len(args['text'])} caracteres al final", diff)
-        res = c.edit(args["title"], appendtext=args["text"],
+        res = c.edit(args["title"], appendtext=args["text"], nocreate=True,
                      summary=args.get("summary", "Adicion via casiopea MCP"))
-        return json.dumps(res, ensure_ascii=False)
+        return _write_result(c, res)
 
     if name == "create-page":
         if not args.get("confirm"):
@@ -771,59 +955,59 @@ def call_tool(name: str, args: dict[str, Any]) -> str:
             aviso = ("\nATENCION: la pagina ya existe con "
                      f"{len(existing)} caracteres; create-page fallara. "
                      "Usar update-page o append-to-page.") if existing else ""
-            return _dry_run(args["title"],
+            return _dry_run(c, args["title"],
                             f"crear pagina ({len(args['text'])} caracteres)",
                             cw._unified_diff("", args["text"], args["title"])) + aviso
         res = c.edit(args["title"], text=args["text"], createonly=True,
                      summary=args.get("summary", "Creacion via casiopea MCP"))
-        return json.dumps(res, ensure_ascii=False)
+        return _write_result(c, res)
 
     if name == "move-page":
         redirect = args.get("leaveRedirect", True)
         if not args.get("confirm"):
-            return _dry_run(args["from"], f"mover a '{args['to']}'"
+            return _dry_run(c, args["from"], f"mover a '{args['to']}'"
                             + (" dejando redirect" if redirect else " SIN redirect, "
                                "lo que rompe los enlaces existentes"))
         res = c.move(args["from"], args["to"], reason=args.get("reason", ""),
                      noredirect=not redirect)
-        return json.dumps(res, ensure_ascii=False)
+        return f"Hecho en {c.wiki}: " + json.dumps(res, ensure_ascii=False)
 
     if name == "delete-page":
         if not args.get("confirm"):
             usos = c.backlinks(args["title"], limit=20)
             extra = (f"\nAviso: {len(usos)} pagina(s) enlazan a esta." if usos else "")
-            return _dry_run(args["title"],
+            return _dry_run(c, args["title"],
                             f"borrar (motivo: {args.get('reason', '')})") + extra
         res = c.delete(args["title"], reason=args.get("reason", ""))
-        return json.dumps(res, ensure_ascii=False)
+        return f"Hecho en {c.wiki}: " + json.dumps(res, ensure_ascii=False)
 
     if name == "undelete-page":
         if not args.get("confirm"):
-            return _dry_run(args["title"], "restaurar pagina borrada")
+            return _dry_run(c, args["title"], "restaurar pagina borrada")
         res = c.undelete(args["title"], reason=args.get("reason", ""))
-        return json.dumps(res, ensure_ascii=False)
+        return f"Hecho en {c.wiki}: " + json.dumps(res, ensure_ascii=False)
 
     if name == "purge-pages":
         if not args.get("confirm"):
-            return _dry_run(", ".join(args["titles"]),
+            return _dry_run(c, ", ".join(args["titles"]),
                             f"purgar cache de {len(args['titles'])} pagina(s)")
         res = c.purge(args["titles"])
-        return json.dumps(res, ensure_ascii=False)
+        return f"Hecho en {c.wiki}: " + json.dumps(res, ensure_ascii=False)
 
     if name == "upload-file":
         target = args.get("filename") or os.path.basename(args["path"])
         if not args.get("confirm"):
-            return _dry_run(target, f"subir {args['path']}")
+            return _dry_run(c, target, f"subir {args['path']}")
         res = c.upload(args["path"], filename=args.get("filename"),
                        comment=args.get("comment", ""), text=args.get("text"))
-        return json.dumps(res, ensure_ascii=False)
+        return f"Hecho en {c.wiki}: " + json.dumps(res, ensure_ascii=False)
 
     if name == "upload-file-from-url":
         if not args.get("confirm"):
-            return _dry_run(args["filename"], f"subir desde {args['url']}")
+            return _dry_run(c, args["filename"], f"subir desde {args['url']}")
         res = c.upload_from_url(args["url"], args["filename"],
                                 comment=args.get("comment", ""), text=args.get("text"))
-        return json.dumps(res, ensure_ascii=False)
+        return f"Hecho en {c.wiki}: " + json.dumps(res, ensure_ascii=False)
 
     raise ValueError(f"herramienta desconocida: {name}")
 
@@ -854,7 +1038,12 @@ def handle(msg: dict[str, Any]) -> dict[str, Any] | None:
                 "TemplateStyles hace cumplir. Antes de guardar contenido maquetado, "
                 "verificarlo con parse-wikitext. Toda escritura requiere confirm: "
                 "true y queda firmada, en el historial publico, con la cuenta duena "
-                "del bot password."
+                "del bot password. Antes de reemplazar una pagina, traerla con "
+                "get-page metadata: true y pasar su latestRevisionId como latestId, "
+                "para no pisar ediciones ajenas; para cambios chicos, find-replace."
+                + (" Hay dos wikis configuradas (parametro wiki): 'prod' y 'local'; "
+                   f"por defecto '{default_wiki()}'. Cada resultado dice en cual "
+                   "actuo." if len(available_wikis()) > 1 else "")
             ),
         }}
 
@@ -865,7 +1054,7 @@ def handle(msg: dict[str, Any]) -> dict[str, Any] | None:
         return {"jsonrpc": "2.0", "id": mid, "result": {}}
 
     if method == "tools/list":
-        return {"jsonrpc": "2.0", "id": mid, "result": {"tools": TOOLS}}
+        return {"jsonrpc": "2.0", "id": mid, "result": {"tools": tools_for_session()}}
 
     if method == "resources/list":
         return {"jsonrpc": "2.0", "id": mid, "result": {"resources": [
@@ -892,13 +1081,24 @@ def handle(msg: dict[str, Any]) -> dict[str, Any] | None:
         name = params.get("name", "")
         args = params.get("arguments") or {}
         try:
-            text = call_tool(name, args)
+            try:
+                result = call_tool(name, args)
+            except cw.CasiopeaError as exc:
+                # Una sesion de larga vida vence: se descarta y se intenta una
+                # vez mas con login nuevo. Solo ante authentication, que falla
+                # antes de escribir nada, asi que repetir es seguro.
+                if exc.category != "authentication":
+                    raise
+                forget_client(args.get("wiki"))
+                result = call_tool(name, args)
+            content = (result if isinstance(result, list)
+                       else [{"type": "text", "text": result}])
             return {"jsonrpc": "2.0", "id": mid, "result": {
-                "content": [{"type": "text", "text": text}], "isError": False}}
+                "content": content, "isError": False}}
+        except cw.CasiopeaError as exc:
+            return {"jsonrpc": "2.0", "id": mid, "result": {
+                "content": [{"type": "text", "text": str(exc)}], "isError": True}}
         except SystemExit as exc:
-            # casiopea.fail() sale del proceso; en un servidor de larga vida eso
-            # seria fatal, asi que se intercepta y se devuelve como error de
-            # herramienta con la categoria ya impresa en stderr.
             return {"jsonrpc": "2.0", "id": mid, "result": {
                 "content": [{"type": "text",
                              "text": f"La operacion fallo (codigo {exc.code}). "

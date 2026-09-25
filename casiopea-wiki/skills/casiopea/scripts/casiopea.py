@@ -44,8 +44,21 @@
 #   doctor                     diagnostico de credenciales, red, grants y rutas
 #   sn-sync                    regenera el inventario de tokens de Stella Nova
 #
+# Subcomandos nuevos en 0.6.0:
+#   replace <titulo>           cambia UN fragmento exacto (--find/--with), sin
+#                              reenviar la pagina entera
+#   file <archivo>             metadatos de un archivo (existe, autor, tamano, URLs)
+#   file-download <archivo>    baja el archivo o una miniatura a disco
+#
+# Dos wikis: --wiki prod (produccion, por defecto) y --wiki local (espejo de
+# desarrollo en http://casiopea.local). Cada una tiene SU bot password:
+#   CASIOPEA_PROD_BOT_USER / CASIOPEA_PROD_BOT_PASS   (o los genericos
+#   CASIOPEA_BOT_USER / CASIOPEA_BOT_PASS, que valen para prod)
+#   CASIOPEA_LOCAL_BOT_USER / CASIOPEA_LOCAL_BOT_PASS
+# Cada clave se busca primero en el entorno y luego en el archivo.
+#
 # Las credenciales se buscan en este orden:
-#   1. Variables de entorno CASIOPEA_BOT_USER y CASIOPEA_BOT_PASS
+#   1. Variables de entorno (las de arriba)
 #   2. Path indicado en CASIOPEA_CREDENTIALS
 #   3. Carpeta cuyo nombre contenga "casiopea" montada en el sandbox
 #      (/sessions/*/mnt/*casiopea*/credentials, /mnt/*casiopea*/credentials)
@@ -76,7 +89,7 @@ import uuid
 from http.cookiejar import CookieJar
 from typing import Any
 
-VERSION = "0.5.0"
+VERSION = "0.6.0"
 
 # URL del endpoint MediaWiki API de Casiopea. Sobreescribible con la variable
 # de entorno CASIOPEA_API_URL para apuntar a un mirror o a una instancia de test.
@@ -90,6 +103,30 @@ WIKI_PRESETS = {
     "produccion": "https://wiki.ead.pucv.cl/api.php",
     "local": "http://casiopea.local/api.php",
 }
+
+# Nombres alternativos con que una persona o un agente puede referirse a cada
+# wiki. Se aceptan los hosts porque asi las llamaba el MCP de MediaWiki que
+# este skill reemplaza, y conviene que las costumbres no se rompan.
+WIKI_ALIASES = {
+    "prod": "prod", "produccion": "prod", "producción": "prod",
+    "production": "prod", "wiki.ead.pucv.cl": "prod",
+    "local": "local", "casiopea.local": "local", "sandbox": "local",
+}
+
+
+def canonical_wiki(name: str | None) -> str:
+    """
+    Normaliza el nombre de una wiki a 'prod' o 'local'.
+
+    Se usa desde load_credentials(), el CLI (--wiki) y el servidor MCP
+    (parametro wiki de cada herramienta). Sin nombre, toma CASIOPEA_DEFAULT_WIKI
+    y, si tampoco esta, produccion: es lo que hacia el skill antes de 0.6.0.
+    """
+    raw = (name or os.environ.get("CASIOPEA_DEFAULT_WIKI") or "prod").strip().lower()
+    if raw not in WIKI_ALIASES:
+        fail("invalid_input", f"wiki desconocida: {name!r}",
+             "usa 'prod' (https://wiki.ead.pucv.cl) o 'local' (http://casiopea.local)")
+    return WIKI_ALIASES[raw]
 
 # Cortesia de bot. maxlag detiene al bot si la replica de BD esta retrasada.
 MAXLAG_SECONDS = 5
@@ -183,10 +220,33 @@ def classify(code: str | None) -> str:
     return MW_ERROR_MAP.get(code, "upstream_failure")
 
 
+class CasiopeaError(SystemExit):
+    """
+    Error con categoria, mensaje y sugerencia.
+
+    Hereda de SystemExit para que el CLI siga terminando con el codigo de la
+    categoria sin cambiar nada. El servidor MCP, que es un proceso de larga
+    vida, la atrapa y devuelve el texto completo al modelo: antes de 0.6.0
+    solo recibia "fallo (codigo N)" y el detalle quedaba en el log.
+    """
+
+    def __init__(self, category: str, message: str, hint: str | None = None):
+        super().__init__(ERROR_CATEGORIES.get(category, 3))
+        self.category = category
+        self.message = message
+        self.hint = hint
+
+    def __str__(self) -> str:
+        out = f"{self.category}: {self.message}"
+        if self.hint:
+            out += f"\n  sugerencia: {self.hint}"
+        return out
+
+
 def fail(category: str, message: str, hint: str | None = None) -> None:
     """
-    Aborta imprimiendo "categoria: mensaje" en stderr y saliendo con el codigo
-    de la categoria.
+    Aborta imprimiendo "categoria: mensaje" en stderr y levantando
+    CasiopeaError con el codigo de la categoria.
 
     Se llama desde cada punto donde el CLI se rinde. El formato es estable a
     proposito: es la interfaz que consume el skill (y el wrapper MCP) para
@@ -195,54 +255,117 @@ def fail(category: str, message: str, hint: str | None = None) -> None:
     sys.stderr.write(f"{category}: {message}\n")
     if hint:
         sys.stderr.write(f"  sugerencia: {hint}\n")
-    sys.exit(ERROR_CATEGORIES.get(category, 3))
+    raise CasiopeaError(category, message, hint)
 
 
 # -----------------------------------------------------------------------------
 # Carga de credenciales
 # -----------------------------------------------------------------------------
 
-def load_credentials() -> tuple[str, str, str]:
+def _credential_keys(wiki: str) -> list[tuple[str, str]]:
     """
-    Devuelve (api_url, bot_user, bot_pass).
+    Pares (clave_usuario, clave_contrasena) que valen para una wiki, en orden
+    de preferencia.
 
-    Se llama desde main() antes de cualquier operacion. El orden de busqueda
-    permite usar el mismo plugin desde el sandbox (donde solo se ven las
-    carpetas montadas) o desde una shell local del Mac/Linux.
+    Se usa desde load_credentials() y run_doctor(). Produccion acepta las
+    claves especificas y, como respaldo, las genericas de siempre: asi un
+    archivo de credenciales anterior a 0.6.0 sigue funcionando igual. El espejo
+    local solo acepta las suyas, porque el bot de produccion no existe en el
+    espejo y probarlo ahi solo produce un WrongPass que confunde.
     """
-    api_url = os.environ.get("CASIOPEA_API_URL", DEFAULT_API_URL)
-    user = os.environ.get("CASIOPEA_BOT_USER")
-    password = os.environ.get("CASIOPEA_BOT_PASS")
+    if wiki == "local":
+        return [("CASIOPEA_LOCAL_BOT_USER", "CASIOPEA_LOCAL_BOT_PASS")]
+    return [("CASIOPEA_PROD_BOT_USER", "CASIOPEA_PROD_BOT_PASS"),
+            ("CASIOPEA_BOT_USER", "CASIOPEA_BOT_PASS")]
+
+
+def _all_credential_values() -> tuple[dict[str, str], str | None]:
+    """
+    Junta todas las claves CASIOPEA_* del entorno y del primer archivo de
+    credenciales encontrado. El entorno gana sobre el archivo.
+
+    Devuelve (valores, ruta_del_archivo_usado). Se usa desde load_credentials()
+    y run_doctor().
+    """
+    values: dict[str, str] = {}
+    used = None
+    for cred_path in _candidate_credential_paths():
+        if cred_path and os.path.isfile(cred_path):
+            values.update(_read_credentials_file(cred_path))
+            used = cred_path
+            break
+    for key, value in os.environ.items():
+        if key.startswith("CASIOPEA_") and value:
+            values[key] = value
+    return values, used
+
+
+def load_credentials(wiki: str | None = None) -> tuple[str, str, str]:
+    """
+    Devuelve (api_url, bot_user, bot_pass) para la wiki pedida.
+
+    Se llama desde main() y desde el servidor MCP, una vez por wiki. El orden
+    de busqueda permite usar el mismo plugin desde el sandbox (donde solo se
+    ven las carpetas montadas) o desde una shell local del Mac/Linux.
+
+    La URL sale de CASIOPEA_<WIKI>_API_URL si esta, si no del preset. Para
+    produccion se respeta ademas CASIOPEA_API_URL, que es como se apuntaba a
+    otra instancia antes de que existiera --wiki.
+    """
+    w = canonical_wiki(wiki)
+    values, _used = _all_credential_values()
+
+    api_url = values.get(f"CASIOPEA_{w.upper()}_API_URL") or WIKI_PRESETS[w]
+    if w == "prod" and values.get("CASIOPEA_API_URL"):
+        api_url = values["CASIOPEA_API_URL"]
+
+    user = password = None
+    for ukey, pkey in _credential_keys(w):
+        if values.get(ukey) and values.get(pkey):
+            user, password = values[ukey], values[pkey]
+            break
 
     if not (user and password):
-        for cred_path in _candidate_credential_paths():
-            if cred_path and os.path.isfile(cred_path):
-                file_user, file_pass, file_api = _read_credentials_file(cred_path)
-                user = user or file_user
-                password = password or file_pass
-                if file_api and api_url == DEFAULT_API_URL:
-                    api_url = file_api
-                if user and password:
-                    break
-
-    if not (user and password):
-        sys.stderr.write(
-            "authentication: no hay credenciales de Casiopea en ninguna ruta conocida.\n\n"
-            "Define CASIOPEA_BOT_USER y CASIOPEA_BOT_PASS como variables de\n"
-            "entorno, o crea un archivo en una de estas rutas:\n"
+        keys = " y ".join(_credential_keys(w)[0])
+        raise_msg = (
+            f"no hay credenciales para la wiki '{w}' ({api_url}).\n\n"
+            f"Define {keys} como variables de entorno, o agregalas a un\n"
+            "archivo de credenciales en una de estas rutas:\n"
             "  ~/Sites/casiopea-skill/credentials\n"
             "  ~/.config/casiopea/credentials\n"
             "  ~/casiopea-bot/credentials\n"
             "  (o monta una carpeta cuyo nombre contenga 'casiopea' en el sandbox)\n\n"
             "Con este contenido y permisos 600:\n\n"
-            "  CASIOPEA_BOT_USER=TuCuenta@NombreDelBot\n"
-            "  CASIOPEA_BOT_PASS=la-contrasena-larga-de-bot-password\n\n"
-            "El bot se crea con TU cuenta en https://wiki.ead.pucv.cl/Special:BotPasswords\n"
-            "y todo lo que haga queda firmado con tu nombre en el historial.\n"
+            + ("  CASIOPEA_LOCAL_BOT_USER=TuCuenta@NombreDelBot\n"
+               "  CASIOPEA_LOCAL_BOT_PASS=la-contrasena-larga\n\n"
+               "El bot del espejo local se crea en http://casiopea.local/Special:BotPasswords;\n"
+               "el de produccion no sirve ahi.\n"
+               if w == "local" else
+               "  CASIOPEA_PROD_BOT_USER=TuCuenta@NombreDelBot\n"
+               "  CASIOPEA_PROD_BOT_PASS=la-contrasena-larga\n\n"
+               "El bot se crea con TU cuenta en https://wiki.ead.pucv.cl/Special:BotPasswords\n"
+               "y todo lo que haga queda firmado con tu nombre en el historial.\n")
         )
-        sys.exit(ERROR_CATEGORIES["authentication"])
+        fail("authentication", raise_msg)
 
     return api_url, user, password
+
+
+def configured_wikis() -> list[str]:
+    """
+    Wikis para las que hay credenciales completas, en orden: prod, local.
+
+    Se usa desde el servidor MCP para decidir si ofrece el parametro `wiki`
+    y desde doctor. El espejo local es un entorno de desarrollo que casi nadie
+    tiene: si no hay claves CASIOPEA_LOCAL_*, simplemente no existe para el
+    skill, y quien lo usa solo ve produccion.
+    """
+    values, _ = _all_credential_values()
+    out = []
+    for w in ("prod", "local"):
+        if any(values.get(u) and values.get(pw) for u, pw in _credential_keys(w)):
+            out.append(w)
+    return out
 
 
 def _candidate_credential_paths() -> list[str]:
@@ -274,15 +397,14 @@ def _candidate_credential_paths() -> list[str]:
     return paths
 
 
-def _read_credentials_file(path: str) -> tuple[str | None, str | None, str | None]:
+def _read_credentials_file(path: str) -> dict[str, str]:
     """
-    Parsea un archivo formato KEY=VALUE y devuelve (user, pass, api_url).
+    Parsea un archivo formato KEY=VALUE y devuelve todas sus claves CASIOPEA_*.
 
-    Se llama desde load_credentials() por cada path candidato. Las claves
-    permitidas son CASIOPEA_BOT_USER, CASIOPEA_BOT_PASS y CASIOPEA_API_URL.
-    Lineas vacias y comentarios (#) se ignoran.
+    Se llama desde _all_credential_values(). Lineas vacias y comentarios (#) se
+    ignoran; las comillas que envuelven un valor se quitan.
     """
-    user = pwd = api = None
+    out: dict[str, str] = {}
     try:
         with open(path, "r", encoding="utf-8") as fh:
             for line in fh:
@@ -292,15 +414,11 @@ def _read_credentials_file(path: str) -> tuple[str | None, str | None, str | Non
                 key, _, value = line.partition("=")
                 key = key.strip()
                 value = value.strip().strip('"').strip("'")
-                if key == "CASIOPEA_BOT_USER":
-                    user = value
-                elif key == "CASIOPEA_BOT_PASS":
-                    pwd = value
-                elif key == "CASIOPEA_API_URL":
-                    api = value
+                if key.startswith("CASIOPEA_") and value:
+                    out[key] = value
     except OSError:
-        return None, None, None
-    return user, pwd, api
+        return {}
+    return out
 
 
 # -----------------------------------------------------------------------------
@@ -317,16 +435,20 @@ class CasiopeaClient:
     lag de replica o rate limiting.
     """
 
-    def __init__(self, api_url: str, user: str, password: str):
+    def __init__(self, api_url: str, user: str, password: str,
+                 wiki: str | None = None):
         self.api_url = api_url
         self.user = user
         self.password = password
+        # Nombre corto de la instancia ('prod' o 'local'), solo para rotular
+        # mensajes y ensayos: que nadie confunda en que wiki va a escribir.
+        self.wiki = wiki or ("local" if "casiopea.local" in api_url else "prod")
         self.cookies = CookieJar()
         self.opener = urllib.request.build_opener(
             urllib.request.HTTPCookieProcessor(self.cookies)
         )
         self.opener.addheaders = [
-            ("User-Agent", "casiopea-wiki-plugin/0.3 (Claude Code plugin; +contact ead.pucv.cl)")
+            ("User-Agent", f"casiopea-skill/{VERSION} (+https://github.com/hspencer/casiopea-skill)")
         ]
         self._csrf_token: str | None = None
 
@@ -514,6 +636,56 @@ class CasiopeaClient:
         if not revs:
             return ""
         return revs[0].get("slots", {}).get("main", {}).get("content", "")
+
+    def page_meta(self, title: str) -> dict[str, Any]:
+        """
+        Wikitexto mas la revision vigente de una pagina.
+
+        Devuelve {exists, title, pageid, revid, timestamp, content}. Se usa en
+        toda escritura que modifica una pagina existente: el revid que devuelve
+        es la base contra la que se detectan ediciones concurrentes
+        (check_base) y el que se pasa a la API como baserevid.
+        """
+        resp = self._request({
+            "action": "query",
+            "prop": "revisions",
+            "titles": title,
+            "rvprop": "ids|timestamp|content",
+            "rvslots": "main",
+        })
+        pages = resp.get("query", {}).get("pages", [])
+        if not pages or pages[0].get("missing") or pages[0].get("invalid"):
+            return {"exists": False, "title": title, "pageid": None,
+                    "revid": None, "timestamp": None, "content": ""}
+        page = pages[0]
+        rev = (page.get("revisions") or [{}])[0]
+        return {
+            "exists": True,
+            "title": page.get("title", title),
+            "pageid": page.get("pageid"),
+            "revid": rev.get("revid"),
+            "timestamp": rev.get("timestamp"),
+            "content": rev.get("slots", {}).get("main", {}).get("content", ""),
+        }
+
+    def check_base(self, title: str, base_revid: int | None) -> dict[str, Any]:
+        """
+        Comprueba que la pagina siga en la revision que se leyo.
+
+        Se llama justo antes de escribir. Si base_revid viene y la revision
+        vigente es otra, alguien edito entre la lectura y la escritura: se
+        aborta con `conflict` en vez de pisar ese cambio. MediaWiki intentaria
+        fusionar solo, y a veces lo logra en silencio; aca se prefiere que la
+        persona vea el cambio ajeno antes de decidir. Devuelve page_meta().
+        """
+        meta = self.page_meta(title)
+        if base_revid is not None and meta["exists"] and meta["revid"] != int(base_revid):
+            fail("conflict",
+                 f"'{title}' cambio desde la revision {base_revid}: ahora esta en "
+                 f"r{meta['revid']} ({meta['timestamp']}).",
+                 "vuelve a traer la pagina, revisa el cambio ajeno y reconstruye "
+                 "la edicion sobre la version vigente")
+        return meta
 
     def category(self, name: str, limit: int = 100) -> list[str]:
         """Lista paginas de una categoria (list=categorymembers), paginada."""
@@ -892,14 +1064,18 @@ class CasiopeaClient:
     def edit(self, title: str, text: str | None = None,
              appendtext: str | None = None, prependtext: str | None = None,
              section: str | None = None, summary: str = "",
-             createonly: bool = False) -> dict[str, Any]:
+             createonly: bool = False, nocreate: bool = False,
+             baserevid: int | None = None,
+             basetimestamp: str | None = None) -> dict[str, Any]:
         """
         Crea o modifica una pagina (action=edit).
 
         Modos mutuamente excluyentes: text (reemplaza), appendtext (al final),
         prependtext (al principio); section limita a una seccion; createonly
-        falla si la pagina ya existe. bot=1 marca la edicion como de bot en
-        RecentChanges. Ante badtoken refresca el CSRF y reintenta una vez.
+        falla si la pagina ya existe y nocreate si no existe. baserevid y
+        basetimestamp activan la deteccion de conflictos del servidor. bot=1
+        marca la edicion como de bot en RecentChanges. Ante badtoken refresca
+        el CSRF y reintenta una vez.
         """
         base: dict[str, str] = {
             "action": "edit",
@@ -919,7 +1095,84 @@ class CasiopeaClient:
             base["section"] = section
         if createonly:
             base["createonly"] = "1"
+        if nocreate:
+            base["nocreate"] = "1"
+        if baserevid is not None:
+            base["baserevid"] = str(baserevid)
+        if basetimestamp:
+            base["basetimestamp"] = basetimestamp
         return self._write("edit", base)
+
+    # -------------------------------------------------------------------------
+    # Archivos
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    def file_title(name: str) -> str:
+        """Normaliza 'Archivo:X', 'Imagen:X', 'File:X' o 'X' a 'File:X'."""
+        head, sep, rest = name.partition(":")
+        if sep and head.strip().lower() in ("file", "archivo", "imagen", "image"):
+            name = rest
+        return "File:" + name.strip()
+
+    def file_info(self, name: str, width: int | None = None) -> dict[str, Any]:
+        """
+        Metadatos de un archivo subido (prop=imageinfo): si existe, quien y
+        cuando lo subio, tamano, tipo MIME, dimensiones y URLs del original,
+        de la pagina de descripcion y, con width, de una miniatura.
+
+        Sirve para verificar una imagen antes de referenciarla en una ficha o
+        de pasar una pagina a produccion: el espejo local no tiene los binarios
+        de produccion, asi que un archivo puede existir en una wiki y no en la
+        otra. Devuelve {"exists": False, ...} en vez de fallar.
+        """
+        params = {
+            "action": "query",
+            "titles": self.file_title(name),
+            "prop": "imageinfo",
+            "iiprop": "timestamp|user|comment|url|size|mime|sha1",
+        }
+        if width:
+            params["iiurlwidth"] = str(width)
+        resp = self._request(params)
+        pages = resp.get("query", {}).get("pages", []) or []
+        page = pages[0] if pages else {}
+        info = (page.get("imageinfo") or [None])[0]
+        if not info:
+            return {"exists": False, "title": page.get("title", self.file_title(name))}
+        info = dict(info)
+        info["exists"] = True
+        info["title"] = page.get("title")
+        return info
+
+    def file_bytes(self, name: str, width: int | None = None) -> tuple[bytes, str, dict]:
+        """
+        Descarga un archivo, o su miniatura si se pide width, con la sesion
+        autenticada. Devuelve (bytes, mime, info).
+
+        Se usa desde `file-download` y desde la herramienta MCP get-file-data,
+        que se la muestra al modelo como imagen. La miniatura la genera la wiki
+        (tambien para SVG y PDF), asi que sirve para mirar casi cualquier cosa
+        sin bajar el original completo.
+        """
+        info = self.file_info(name, width=width)
+        if not info.get("exists"):
+            fail("not_found", f"no existe el archivo {self.file_title(name)} en {self.wiki}",
+                 "verifica el nombre exacto; el espejo local no tiene los binarios "
+                 "de produccion")
+        url = info.get("thumburl") if width else info.get("url")
+        url = url or info.get("url")
+        if url.startswith("//"):
+            url = "https:" + url
+        elif url.startswith("/"):
+            url = urllib.parse.urljoin(self.api_url, url)
+        try:
+            with self.opener.open(urllib.request.Request(url), timeout=120) as resp:
+                data = resp.read()
+                mime = resp.headers.get_content_type() or info.get("mime", "")
+        except urllib.error.URLError as exc:
+            fail("upstream_failure", f"no se pudo descargar {url}: {exc}")
+        return data, mime, info
 
     def move(self, from_title: str, to_title: str, reason: str = "",
              noredirect: bool = False, movetalk: bool = True) -> dict[str, Any]:
@@ -1277,6 +1530,29 @@ def _smw_value(value: Any) -> str:
 # Salvaguarda para escrituras: dry-run con diff real
 # -----------------------------------------------------------------------------
 
+def apply_find_replace(text: str, find: str, replace: str) -> str:
+    """
+    Reemplaza UNA ocurrencia exacta de `find` en `text`.
+
+    Se usa desde el subcomando `replace` y la herramienta MCP find-replace. Si
+    `find` no aparece, o aparece mas de una vez, aborta con invalid_input sin
+    escribir nada: un reemplazo ambiguo en una plantilla usada por cientos de
+    fichas es exactamente el accidente que esta operacion existe para evitar.
+    La salida es ampliar `find` con el texto de alrededor hasta que sea unico.
+    """
+    if not find:
+        fail("invalid_input", "el texto a buscar esta vacio")
+    n = text.count(find)
+    if n == 0:
+        fail("invalid_input", "el texto a buscar no aparece en la version vigente",
+             "copia el fragmento exacto desde la pagina (espacios y saltos de "
+             "linea incluidos); puede que alguien lo haya cambiado")
+    if n > 1:
+        fail("invalid_input", f"el texto a buscar aparece {n} veces",
+             "amplialo con texto de alrededor hasta que identifique una sola ocurrencia")
+    return text.replace(find, replace, 1)
+
+
 def _unified_diff(current: str, proposed: str, title: str) -> str:
     """
     Diff unificado entre el contenido actual y el propuesto.
@@ -1325,7 +1601,7 @@ def require_confirmation(title: str, action_desc: str, confirm: bool,
 # Mantenimiento: diagnostico y sincronizacion de la doctrina grafica
 # -----------------------------------------------------------------------------
 
-def run_doctor(api_url: str) -> int:
+def run_doctor(wiki: str | None = None, api_override: str | None = None) -> int:
     """
     Diagnostico de instalacion. No toca la wiki mas alla de un login y un par
     de lecturas.
@@ -1334,51 +1610,54 @@ def run_doctor(api_url: str) -> int:
     cosas: Python demasiado viejo, credenciales en una ruta que el script no
     mira, el usuario escrito sin @NombreBot, o grants insuficientes. Este
     comando responde las cuatro de una vez, en orden, y sigue adelante aunque
-    un paso falle para dar el cuadro completo en una sola corrida.
+    un paso falle para dar el cuadro completo en una sola corrida. Revisa la
+    wiki pedida con --wiki, o produccion por defecto, y lista que wikis
+    tienen credenciales.
     """
     ok = True
+    w = canonical_wiki(wiki)
     print(f"casiopea.py {VERSION}")
     print(f"python {sys.version.split()[0]} ({sys.executable})")
     if sys.version_info < (3, 10):
         print("  FALLA: se requiere Python 3.10 o superior (se usa `X | Y` en anotaciones)")
         ok = False
     print(f"script: {os.path.abspath(__file__)}")
-    print(f"endpoint: {api_url}")
 
     print("\ncredenciales")
-    env_user = os.environ.get("CASIOPEA_BOT_USER")
-    if env_user:
-        print(f"  origen: variables de entorno (usuario {env_user})")
-    else:
-        found = [p for p in _candidate_credential_paths() if p and os.path.isfile(p)]
-        if found:
-            print(f"  origen: {found[0]}")
-            try:
-                mode = oct(os.stat(found[0]).st_mode & 0o777)
-                print(f"  permisos: {mode}"
-                      + ("" if mode == "0o600" else "  (conviene chmod 600)"))
-            except OSError:
-                pass
-            for extra in found[1:]:
-                print(f"  (tambien existe, ignorado: {extra})")
-        else:
-            print("  FALLA: ningun archivo de credenciales en las rutas conocidas")
-            for p in _candidate_credential_paths():
-                if p:
-                    print(f"    buscado en: {p}")
-            ok = False
+    values, used = _all_credential_values()
+    print(f"  archivo: {used}" if used else "  archivo: ninguno (solo entorno)")
+    if used:
+        try:
+            mode = oct(os.stat(used).st_mode & 0o777)
+            print(f"  permisos: {mode}" + ("" if mode == "0o600" else "  (mejor chmod 600)"))
+        except OSError:
+            pass
+    wikis = configured_wikis()
+    for cand in ("prod", "local"):
+        estado = "configurada" if cand in wikis else "sin credenciales"
+        if cand == "local" and cand not in wikis:
+            estado += " (opcional: solo si tienes el espejo de desarrollo)"
+        print(f"  {cand}: {estado}")
+    if w not in wikis:
+        print(f"  FALLA: la wiki pedida ({w}) no tiene credenciales")
+        for p in _candidate_credential_paths():
+            if p:
+                print(f"    buscado en: {p}")
+        ok = False
 
     if not ok:
         print("\nresultado: hay problemas que resolver antes de usar el skill")
         return 1
 
-    print("\nconexion e identidad")
+    print(f"\nconexion e identidad ({w})")
     try:
-        _, user, password = load_credentials()
-        client = CasiopeaClient(api_url, user, password)
+        api_url, user, password = load_credentials(w)
+        api_url = api_override or api_url
+        print(f"  endpoint: {api_url}")
+        client = CasiopeaClient(api_url, user, password, wiki=w)
         client.login()
         info = client.whoami()
-        print(f"  autenticado como: {info.get('name')}")
+        print(f"  autenticado como: {info.get('name')} (bot {user})")
         print(f"  grupos: {', '.join(info.get('groups', [])) or '(ninguno)'}")
         if info.get("blockedby"):
             print(f"  FALLA: la cuenta esta bloqueada por {info['blockedby']}")
@@ -1534,8 +1813,9 @@ def run_sn_sync(out_path: str | None, check_wiki: bool, api_url: str) -> int:
     if check_wiki:
         lines += ["", "## Cotejo con la wiki de producción", ""]
         try:
-            _, user, password = load_credentials()
-            client = CasiopeaClient(api_url, user, password)
+            w = "local" if "casiopea.local" in api_url else "prod"
+            _, user, password = load_credentials(w)
+            client = CasiopeaClient(api_url, user, password, wiki=w)
             client.login()
             for title in SN_WIKI_PAGES:
                 text = client.page(title)
@@ -1588,8 +1868,9 @@ def build_parser() -> argparse.ArgumentParser:
         description="Cliente para la wiki Casiopea de la e[ad] PUCV (Semantic MediaWiki).",
     )
     parser.add_argument("--version", action="version", version=f"casiopea.py {VERSION}")
-    parser.add_argument("--wiki", choices=sorted(WIKI_PRESETS),
-                        help="Instancia a la que apuntar (default: prod)")
+    parser.add_argument("--wiki", choices=sorted(WIKI_ALIASES),
+                        help="Instancia: prod (default, o CASIOPEA_DEFAULT_WIKI) o "
+                             "local, el espejo de desarrollo si esta configurado")
     parser.add_argument("--api", help="URL completa de api.php; gana sobre --wiki")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
@@ -1705,7 +1986,32 @@ def build_parser() -> argparse.ArgumentParser:
     p_edit = sub.add_parser("edit", help="Reemplaza el contenido de una pagina")
     p_edit.add_argument("title")
     p_edit.add_argument("--section", help="Limitar la operacion a una seccion")
+    p_edit.add_argument("--base-rev", type=int, dest="base_rev",
+                        help="Revision sobre la que se preparo el cambio (la muestra "
+                             "el dry-run); si la pagina cambio desde entonces, aborta")
     add_write_args(p_edit)
+
+    p_repl = sub.add_parser("replace",
+                            help="Cambia un fragmento exacto sin reenviar la pagina entera")
+    p_repl.add_argument("title")
+    p_repl.add_argument("--find", help="Texto exacto a buscar (debe aparecer una sola vez)")
+    p_repl.add_argument("--find-file", dest="find_file", help="Leer --find de un archivo")
+    p_repl.add_argument("--with", dest="with_text", help="Texto que lo reemplaza")
+    p_repl.add_argument("--with-file", dest="with_file", help="Leer --with de un archivo")
+    p_repl.add_argument("--section", help="Buscar solo dentro de una seccion")
+    p_repl.add_argument("--base-rev", type=int, dest="base_rev",
+                        help="Revision sobre la que se preparo el cambio")
+    p_repl.add_argument("--summary", default="Edit via casiopea-wiki bot")
+    p_repl.add_argument("--confirm", action="store_true")
+
+    p_file = sub.add_parser("file", help="Metadatos de un archivo subido")
+    p_file.add_argument("name", help="Con o sin prefijo Archivo:/File:")
+    p_file.add_argument("--width", type=int, help="Incluir URL de miniatura a este ancho")
+
+    p_fdl = sub.add_parser("file-download", help="Baja un archivo (o su miniatura) a disco")
+    p_fdl.add_argument("name")
+    p_fdl.add_argument("--out", help="Ruta de salida (default: nombre del archivo)")
+    p_fdl.add_argument("--width", type=int, help="Bajar una miniatura de este ancho")
 
     p_append = sub.add_parser("append", help="Anade texto al final de una pagina")
     p_append.add_argument("title")
@@ -1781,9 +2087,10 @@ def _resolve_api(args) -> str:
     """
     if getattr(args, "api", None):
         return args.api
-    if getattr(args, "wiki", None):
-        return WIKI_PRESETS[args.wiki]
-    return os.environ.get("CASIOPEA_API_URL", DEFAULT_API_URL)
+    w = canonical_wiki(getattr(args, "wiki", None))
+    if w == "prod" and not getattr(args, "wiki", None):
+        return os.environ.get("CASIOPEA_API_URL", DEFAULT_API_URL)
+    return os.environ.get(f"CASIOPEA_{w.upper()}_API_URL") or WIKI_PRESETS[w]
 
 
 def main() -> None:
@@ -1796,12 +2103,13 @@ def main() -> None:
         sys.exit(run_sn_sync(args.out, args.check_wiki, _resolve_api(args)))
 
     if args.cmd == "doctor":
-        sys.exit(run_doctor(_resolve_api(args)))
+        sys.exit(run_doctor(getattr(args, "wiki", None), getattr(args, "api", None)))
 
-    api_url, user, password = load_credentials()
-    if getattr(args, "api", None) or getattr(args, "wiki", None):
-        api_url = _resolve_api(args)
-    client = CasiopeaClient(api_url, user, password)
+    wiki = canonical_wiki(getattr(args, "wiki", None))
+    api_url, user, password = load_credentials(wiki)
+    if getattr(args, "api", None):
+        api_url = args.api
+    client = CasiopeaClient(api_url, user, password, wiki=wiki)
     client.login()
 
     # ---- Lectura ----
@@ -1999,15 +2307,57 @@ def main() -> None:
     # ---- Escritura: dry-run con diff, luego --confirm ----
     elif args.cmd == "edit":
         body = _read_text_input(args)
-        current = client.page(args.title)
-        diff = None if args.section else _unified_diff(current, body, args.title)
+        meta = client.check_base(args.title, args.base_rev)
+        diff = None if args.section else _unified_diff(meta["content"], body, args.title)
         require_confirmation(
-            args.title, f"reemplazar contenido ({len(body)} chars)",
+            args.title,
+            f"reemplazar contenido ({len(body)} chars) en {client.wiki}; base r{meta['revid']}"
+            f" (confirmar con --base-rev {meta['revid']} para detectar ediciones ajenas)",
             args.confirm, diff,
         )
         result = client.edit(args.title, text=body, section=args.section,
-                              summary=args.summary)
+                             summary=args.summary, baserevid=meta["revid"],
+                             basetimestamp=meta["timestamp"])
         print(json.dumps(result, indent=2, ensure_ascii=False))
+
+    elif args.cmd == "replace":
+        def _arg_or_file(value, path, what):
+            if path:
+                with open(path, "r", encoding="utf-8") as fh:
+                    return fh.read()
+            if value is None:
+                fail("invalid_input", f"falta {what}")
+            return value
+        find = _arg_or_file(args.find, args.find_file, "--find o --find-file")
+        repl = _arg_or_file(args.with_text, args.with_file, "--with o --with-file")
+        meta = client.check_base(args.title, args.base_rev)
+        if not meta["exists"]:
+            fail("not_found", f"la pagina '{args.title}' no existe en {client.wiki}")
+        target = (client.page_section(args.title, args.section)
+                  if args.section is not None else meta["content"])
+        proposed = apply_find_replace(target, find, repl)
+        require_confirmation(
+            args.title,
+            f"reemplazar un fragmento en {client.wiki}; base r{meta['revid']}",
+            args.confirm, _unified_diff(target, proposed, args.title),
+        )
+        result = client.edit(args.title, text=proposed, section=args.section,
+                             summary=args.summary, nocreate=True,
+                             baserevid=meta["revid"], basetimestamp=meta["timestamp"])
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+
+    elif args.cmd == "file":
+        info = client.file_info(args.name, width=args.width)
+        print(json.dumps(info, indent=2, ensure_ascii=False))
+        if not info.get("exists"):
+            sys.exit(ERROR_CATEGORIES["not_found"])
+
+    elif args.cmd == "file-download":
+        data, mime, info = client.file_bytes(args.name, width=args.width)
+        out = args.out or info["title"].split(":", 1)[-1].replace(" ", "_")
+        with open(out, "wb") as fh:
+            fh.write(data)
+        print(f"{out}  ({len(data)} bytes, {mime})")
 
     elif args.cmd == "append":
         body = _read_text_input(args)

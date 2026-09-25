@@ -97,7 +97,9 @@ claude plugin install casiopea@ead-pucv
 }
 ```
 
-Expone 26 herramientas y publica la doctrina de Stella Nova como recursos MCP, para que el agente pueda cargarla sin salir a buscarla.
+Expone 29 herramientas y publica la doctrina de Stella Nova como recursos MCP, para que el agente pueda cargarla sin salir a buscarla. En Claude Cowork, declararlo así en `claude_desktop_config.json` hace que corra en tu computador y quede disponible en todas las sesiones, también las que corren en la nube.
+
+**Si además tienes un espejo local** de la wiki (casi nadie lo tiene), agrega al archivo de credenciales las claves `CASIOPEA_LOCAL_BOT_USER` y `CASIOPEA_LOCAL_BOT_PASS` de un bot creado en el espejo. Con eso cada herramienta gana un parámetro `wiki` (`prod` o `local`), y `CASIOPEA_DEFAULT_WIKI=local` en el bloque `env` hace que el espejo sea el destino por defecto. Sin esas claves, el skill no muestra nada del espejo.
 
 **Sin instalar nada**: el CLI funciona solo. `python3 casiopea-wiki/skills/casiopea/scripts/casiopea.py --help`.
 
